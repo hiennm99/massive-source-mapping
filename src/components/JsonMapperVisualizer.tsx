@@ -1,4 +1,4 @@
-import React, {useState, useCallback, JSX} from 'react';
+import React, {useState, useCallback} from 'react';
 import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check } from 'lucide-react';
 
 // Type definitions
@@ -217,7 +217,7 @@ const JsonMapperVisualizer: React.FC = () => {
         []
     );
 
-    const renderDataStructure = useCallback((): JSX.Element => {
+    const renderDataStructure = useCallback(() => {
         return (
             <div className="space-y-4">
                 {jsonData.map((fileData, fileIndex) => {
