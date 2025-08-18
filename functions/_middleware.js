@@ -1,6 +1,7 @@
 // functions/_middleware.js
 const ALLOWED_IPS = [
     '192.168.1.0/24',     // Local network (optional)
+    '14.224.153.190/24' // My Public IP
 ];
 
 export async function onRequest(context) {
