@@ -57,7 +57,8 @@ const JsonMapperVisualizer: React.FC = () => {
             columns: [
                 'fiscal_code', 'full_name', 'gender', 'date_of_birth', 'place_of_birth', 'note',
                 'country', 'postcode', 'region', 'province', 'city', 'address',
-                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number'
+                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number',
+                'joint_fc', 'guarantor_fc', 'erede_fc', 'other_fc', 'possible_guarantor_fc'
             ]
         }
     ]);
