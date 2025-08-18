@@ -2,7 +2,6 @@ import React, {useState, useCallback} from 'react';
 import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check } from 'lucide-react';
 import SchannedSchema from'../data/scanned_schema.json'
 import { saveMappingExport } from "../services/mappingExportService.tsx";
-import { toast } from "sonner";
 
 // Type definitions
 interface SourceColumn {
