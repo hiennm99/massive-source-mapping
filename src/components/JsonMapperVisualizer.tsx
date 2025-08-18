@@ -1,7 +1,8 @@
 import React, {useState, useCallback} from 'react';
 import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check } from 'lucide-react';
 import SchannedSchema from'../data/scanned_schema.json'
-import {saveMappingExport} from "../services/mappingExportService.tsx";
+import { saveMappingExport } from "../services/mappingExportService.tsx";
+import { toast } from "sonner";
 
 // Type definitions
 interface SourceColumn {
@@ -221,14 +222,14 @@ const JsonMapperVisualizer: React.FC = () => {
 
             // Lưu lên Airtable
             const result = await saveMappingExport(mappingData);
-
-            setExportMessage('Đã lưu mapping thành công!');
+            setExportMessage('Saved mapping successfully !!!');
+            setMappings([]);
             console.log('Saved to Airtable:', result);
 
         } catch (error) {
             console.error('Export error:', error);
             // @ts-ignore
-            setExportMessage(`Lỗi khi lưu: ${error.message}`);
+            setExportMessage(`Error when saving data: ${error.message}`);
         } finally {
             setIsExporting(false);
         }

@@ -1,4 +1,6 @@
 // File: src/services/mappingExportService.ts
+import { toast } from 'sonner';
+
 interface MappingExportData {
     name: string;
     mappings: any;
@@ -75,15 +77,20 @@ export const saveMappingExport = async (data: MappingExportData): Promise<any> =
             try {
                 const error: AirtableError = await response.json();
                 errorMessage = error.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (parseError) {
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
             }
             throw new Error(`Failed to save mapping: ${errorMessage}`);
         }
 
-        return await response.json();
+        const result = await response.json();
+        toast.success('Saved mapping successfully !!!');
+        return result;
     } catch (error) {
-        console.error('Save mapping export error:', error);
+        console.error('Saved mapping export error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu mapping. Vui lòng thử lại.';
+        toast.error(errorMessage);
         throw error;
     }
 };
@@ -104,6 +111,7 @@ export const getMappingExports = async (): Promise<any[]> => {
             try {
                 const error: AirtableError = await response.json();
                 errorMessage = error.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (parseError) {
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
             }
@@ -137,6 +145,8 @@ export const getMappingExports = async (): Promise<any[]> => {
         });
     } catch (error) {
         console.error('Get mapping exports error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi tải danh sách mapping. Vui lòng thử lại.';
+        toast.error(errorMessage);
         throw error;
     }
 };
@@ -165,8 +175,12 @@ export const deleteMappingExport = async (id: string): Promise<void> => {
             }
             throw new Error(`Failed to delete mapping: ${errorMessage}`);
         }
+
+        toast.success('Đã xóa mapping thành công!');
     } catch (error) {
         console.error('Delete mapping export error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa mapping. Vui lòng thử lại.';
+        toast.error(errorMessage);
         throw error;
     }
 };
