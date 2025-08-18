@@ -1,5 +1,7 @@
 import React, {useState, useCallback} from 'react';
 import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check } from 'lucide-react';
+import SchannedSchema from'../data/scanned_schema.json'
+import {saveMappingExport} from "../services/mappingExportService.tsx";
 
 // Type definitions
 interface SourceColumn {
@@ -44,7 +46,7 @@ interface MappingExport {
 }
 
 const JsonMapperVisualizer: React.FC = () => {
-    const [jsonData, setJsonData] = useState<FileData[]>([]);
+    const [jsonData, setJsonData] = useState<FileData[]>(SchannedSchema);
 
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [destinationTables, setDestinationTables] = useState<DestinationTable[]>([
@@ -183,39 +185,52 @@ const JsonMapperVisualizer: React.FC = () => {
         }
     }, [destinationTables]);
 
-    const exportMappings = useCallback((): void => {
-        const mappingData: MappingExport = {
-            mappings: mappings,
-            destinationTables: destinationTables,
-            timestamp: new Date().toISOString()
-        };
-        const blob = new Blob([JSON.stringify(mappingData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'mapping_result.json';
-        a.click();
-        URL.revokeObjectURL(url);
-    }, [mappings, destinationTables]);
+    // const exportMappings = useCallback((): void => {
+    //     const mappingData: MappingExport = {
+    //         mappings: mappings,
+    //         destinationTables: destinationTables,
+    //         timestamp: new Date().toISOString()
+    //     };
+    //     const blob = new Blob([JSON.stringify(mappingData, null, 2)], { type: 'application/json' });
+    //     const url = URL.createObjectURL(blob);
+    //     const a = document.createElement('a');
+    //     a.href = url;
+    //     a.download = 'mapping_result.json';
+    //     a.click();
+    //     URL.revokeObjectURL(url);
+    // }, [mappings, destinationTables]);
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportMessage, setExportMessage] = useState<string>('');
 
-    // Upload schema JSON
-    const handleFileUpload = useCallback(
-        (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const parsed = JSON.parse(event.target?.result as string);
-                    setJsonData(parsed);
-                } catch {
-                    alert("Invalid JSON format");
-                }
+    const exportMappings = useCallback(async (): Promise<void> => {
+        setIsExporting(true);
+        setExportMessage('');
+
+        try {
+            // Tạo tên file với timestamp
+            const timestamp = new Date().toLocaleString('vi-VN');
+            const exportName = `Mapping Export - ${timestamp}`;
+
+            // Chuẩn bị data cho Airtable
+            const mappingData = {
+                name: exportName,
+                mappings: mappings,
+                destination_tables: destinationTables // Đổi tên để match với interface
             };
-            reader.readAsText(file);
-        },
-        []
-    );
+
+            // Lưu lên Airtable
+            const result = await saveMappingExport(mappingData);
+
+            setExportMessage('Đã lưu mapping thành công!');
+            console.log('Saved to Airtable:', result);
+
+        } catch (error) {
+            console.error('Export error:', error);
+            setExportMessage(`Lỗi khi lưu: ${error.message}`);
+        } finally {
+            setIsExporting(false);
+        }
+    }, [mappings, destinationTables]);
 
     const renderDataStructure = useCallback(() => {
         return (
@@ -398,12 +413,12 @@ const JsonMapperVisualizer: React.FC = () => {
                         {/*<div className="text-sm text-blue-700 mb-1">• Click on files to expand sheets, then drag column names to destination tables</div>*/}
                         {/*<div className="text-sm text-blue-700 mb-1">• <span className="text-green-600 font-medium">Green columns</span> = Available for mapping</div>*/}
                         {/*<div className="text-sm text-blue-700">• <span className="text-red-600 font-medium">Red columns</span> = Already mapped</div>*/}
-                        <input
-                            type="file"
-                            accept="application/json"
-                            onChange={handleFileUpload}
-                            className="mb-4"
-                        />
+                        {/*<input*/}
+                        {/*    type="file"*/}
+                        {/*    accept="application/json"*/}
+                        {/*    onChange={handleFileUpload}*/}
+                        {/*    className="mb-4"*/}
+                        {/*/>*/}
                     </div>
                     {renderDataStructure()}
                 </div>
