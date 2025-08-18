@@ -39,14 +39,15 @@ interface ColumnMapping {
     };
 }
 
-interface MappingExport {
-    mappings: ColumnMapping[];
-    destinationTables: DestinationTable[];
-    timestamp: string;
-}
+// interface MappingExport {
+//     mappings: ColumnMapping[];
+//     destinationTables: DestinationTable[];
+//     timestamp: string;
+// }
 
 const JsonMapperVisualizer: React.FC = () => {
-    const [jsonData, setJsonData] = useState<FileData[]>(SchannedSchema);
+    // @ts-ignore
+    const [jsonData] = useState<FileData[]>(SchannedSchema);
 
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [destinationTables, setDestinationTables] = useState<DestinationTable[]>([
@@ -199,8 +200,8 @@ const JsonMapperVisualizer: React.FC = () => {
     //     a.click();
     //     URL.revokeObjectURL(url);
     // }, [mappings, destinationTables]);
-    const [isExporting, setIsExporting] = useState(false);
-    const [exportMessage, setExportMessage] = useState<string>('');
+    const [, setIsExporting] = useState(false);
+    const [, setExportMessage] = useState<string>('');
 
     const exportMappings = useCallback(async (): Promise<void> => {
         setIsExporting(true);
@@ -226,6 +227,7 @@ const JsonMapperVisualizer: React.FC = () => {
 
         } catch (error) {
             console.error('Export error:', error);
+            // @ts-ignore
             setExportMessage(`Lỗi khi lưu: ${error.message}`);
         } finally {
             setIsExporting(false);
@@ -408,18 +410,18 @@ const JsonMapperVisualizer: React.FC = () => {
                     <h2 className="text-lg font-semibold">Source Data Structure</h2>
                 </div>
                 <div className="flex-1 overflow-auto p-4">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4 border border-blue-200">
-                        {/*<div className="text-sm text-blue-800 mb-2 font-medium">💡 How to use:</div>*/}
-                        {/*<div className="text-sm text-blue-700 mb-1">• Click on files to expand sheets, then drag column names to destination tables</div>*/}
-                        {/*<div className="text-sm text-blue-700 mb-1">• <span className="text-green-600 font-medium">Green columns</span> = Available for mapping</div>*/}
-                        {/*<div className="text-sm text-blue-700">• <span className="text-red-600 font-medium">Red columns</span> = Already mapped</div>*/}
-                        {/*<input*/}
-                        {/*    type="file"*/}
-                        {/*    accept="application/json"*/}
-                        {/*    onChange={handleFileUpload}*/}
-                        {/*    className="mb-4"*/}
-                        {/*/>*/}
-                    </div>
+                    {/*<div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4 border border-blue-200">*/}
+                    {/*    <div className="text-sm text-blue-800 mb-2 font-medium">💡 How to use:</div>*/}
+                    {/*    <div className="text-sm text-blue-700 mb-1">• Click on files to expand sheets, then drag column names to destination tables</div>*/}
+                    {/*    <div className="text-sm text-blue-700 mb-1">• <span className="text-green-600 font-medium">Green columns</span> = Available for mapping</div>*/}
+                    {/*    <div className="text-sm text-blue-700">• <span className="text-red-600 font-medium">Red columns</span> = Already mapped</div>*/}
+                    {/*    <input*/}
+                    {/*        type="file"*/}
+                    {/*        accept="application/json"*/}
+                    {/*        onChange={handleFileUpload}*/}
+                    {/*        className="mb-4"*/}
+                    {/*    />*/}
+                    {/*</div>*/}
                     {renderDataStructure()}
                 </div>
             </div>
