@@ -1,5 +1,5 @@
 import React, {useState, useCallback} from 'react';
-import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check } from 'lucide-react';
+import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check, Loader2 } from 'lucide-react';
 import SchannedSchema from'../data/scanned_schema.json'
 import { saveMappingExport } from "../services/mappingExportService.tsx";
 
@@ -39,12 +39,6 @@ interface ColumnMapping {
     };
 }
 
-// interface MappingExport {
-//     mappings: ColumnMapping[];
-//     destinationTables: DestinationTable[];
-//     timestamp: string;
-// }
-
 const JsonMapperVisualizer: React.FC = () => {
     // @ts-ignore
     const [jsonData] = useState<FileData[]>(SchannedSchema);
@@ -67,6 +61,10 @@ const JsonMapperVisualizer: React.FC = () => {
     const [newTableName, setNewTableName] = useState<string>('');
     const [newColumnName, setNewColumnName] = useState<string>('');
     const [selectedTableId, setSelectedTableId] = useState<string>('');
+
+    // Export states
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportMessage, setExportMessage] = useState<string>('');
 
     // Helper function to check if a column is mapped
     const isColumnMapped = useCallback((fileName: string, sheetName: string, columnName: string): boolean => {
@@ -187,28 +185,14 @@ const JsonMapperVisualizer: React.FC = () => {
         }
     }, [destinationTables]);
 
-    // const exportMappings = useCallback((): void => {
-    //     const mappingData: MappingExport = {
-    //         mappings: mappings,
-    //         destinationTables: destinationTables,
-    //         timestamp: new Date().toISOString()
-    //     };
-    //     const blob = new Blob([JSON.stringify(mappingData, null, 2)], { type: 'application/json' });
-    //     const url = URL.createObjectURL(blob);
-    //     const a = document.createElement('a');
-    //     a.href = url;
-    //     a.download = 'mapping_result.json';
-    //     a.click();
-    //     URL.revokeObjectURL(url);
-    // }, [mappings, destinationTables]);
-    const [, setIsExporting] = useState(false);
-    const [, setExportMessage] = useState<string>('');
-
     const exportMappings = useCallback(async (): Promise<void> => {
         setIsExporting(true);
         setExportMessage('');
 
         try {
+            // Simulate some processing time
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             // Tạo tên file với timestamp
             const timestamp = new Date().toLocaleString('vi-VN');
             const exportName = `Mapping Export - ${timestamp}`;
@@ -222,14 +206,25 @@ const JsonMapperVisualizer: React.FC = () => {
 
             // Lưu lên Airtable
             const result = await saveMappingExport(mappingData);
-            setExportMessage('Saved mapping successfully !!!');
-            setMappings([]);
+            setExportMessage('Saved mapping successfully!');
+
+            // Auto clear message after 3 seconds
+            setTimeout(() => {
+                setExportMessage('');
+                setMappings([]);
+            }, 3000);
+
             console.log('Saved to Airtable:', result);
 
         } catch (error) {
             console.error('Export error:', error);
             // @ts-ignore
             setExportMessage(`Error when saving data: ${error.message}`);
+
+            // Auto clear error message after 5 seconds
+            setTimeout(() => {
+                setExportMessage('');
+            }, 5000);
         } finally {
             setIsExporting(false);
         }
@@ -403,7 +398,53 @@ const JsonMapperVisualizer: React.FC = () => {
     }, [jsonData, expandedNodes, handleDragStart, toggleNode, isColumnMapped, getColumnMappingCount]);
 
     return (
-        <div className="h-screen flex bg-gray-50">
+        <div className="h-screen flex bg-gray-50 relative">
+            {/* Saving Overlay */}
+            {isExporting && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 max-w-sm mx-4">
+                        {/* Animated spinner */}
+                        <div className="relative">
+                            <div className="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+                            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="text-center">
+                            <h3 className="text-xl font-semibold text-gray-800 mb-2">Saving Your Mapping</h3>
+                            <p className="text-gray-600">Please wait while we export your data...</p>
+                        </div>
+
+                        {/* Progress dots animation */}
+                        <div className="flex space-x-2">
+                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success/Error Message Toast */}
+            {exportMessage && (
+                <div className="fixed top-4 right-4 z-40 max-w-md">
+                    <div className={`rounded-lg shadow-lg p-4 border-l-4 ${
+                        exportMessage.includes('Error')
+                            ? 'bg-red-50 border-red-400 text-red-800'
+                            : 'bg-green-50 border-green-400 text-green-800'
+                    }`}>
+                        <div className="flex items-center">
+                            {exportMessage.includes('Error') ? (
+                                <div className="w-5 h-5 text-red-600 mr-2">❌</div>
+                            ) : (
+                                <div className="w-5 h-5 text-green-600 mr-2">✅</div>
+                            )}
+                            <span className="font-medium">{exportMessage}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* JSON Source Panel */}
             <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 flex items-center">
@@ -411,18 +452,6 @@ const JsonMapperVisualizer: React.FC = () => {
                     <h2 className="text-lg font-semibold">Source Data Structure</h2>
                 </div>
                 <div className="flex-1 overflow-auto p-4">
-                    {/*<div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4 border border-blue-200">*/}
-                    {/*    <div className="text-sm text-blue-800 mb-2 font-medium">💡 How to use:</div>*/}
-                    {/*    <div className="text-sm text-blue-700 mb-1">• Click on files to expand sheets, then drag column names to destination tables</div>*/}
-                    {/*    <div className="text-sm text-blue-700 mb-1">• <span className="text-green-600 font-medium">Green columns</span> = Available for mapping</div>*/}
-                    {/*    <div className="text-sm text-blue-700">• <span className="text-red-600 font-medium">Red columns</span> = Already mapped</div>*/}
-                    {/*    <input*/}
-                    {/*        type="file"*/}
-                    {/*        accept="application/json"*/}
-                    {/*        onChange={handleFileUpload}*/}
-                    {/*        className="mb-4"*/}
-                    {/*    />*/}
-                    {/*</div>*/}
                     {renderDataStructure()}
                 </div>
             </div>
@@ -436,10 +465,15 @@ const JsonMapperVisualizer: React.FC = () => {
                     </div>
                     <button
                         onClick={exportMappings}
-                        className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-sm flex items-center transition-colors"
+                        disabled={isExporting}
+                        className="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm flex items-center transition-colors"
                     >
-                        <Download className="w-4 h-4 mr-1" />
-                        Export
+                        {isExporting ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                            <Download className="w-4 h-4 mr-1" />
+                        )}
+                        {isExporting ? 'Saving...' : 'Export'}
                     </button>
                 </div>
 
