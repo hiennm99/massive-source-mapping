@@ -1,6 +1,6 @@
 import React, {useState, useCallback} from 'react';
-import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, File, Sheet, Columns, Check, Loader2, Save } from 'lucide-react';
-import SchannedSchema from'../data/scanned_schema.json'
+import { ChevronRight, ChevronDown, Table, Database, Trash2, File, Sheet, Columns, Check, Loader2, Save, Search, X  } from 'lucide-react';
+import ScannedSchema from'../data/scanned_schema.json'
 import Navbar from "./Navbar.tsx";
 import { saveMappingExport } from "../services/mappingExportService2.tsx";
 
@@ -43,30 +43,64 @@ interface ColumnMapping {
 const JsonMapperVisualizer: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-expect-error
-    const [jsonData] = useState<FileData[]>(SchannedSchema);
+    const [jsonData] = useState<FileData[]>(ScannedSchema);
 
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [destinationTables, setDestinationTables] = useState<DestinationTable[]>([
         {
             id: 'general_data_table',
-            name: 'general_data',
+            name: 'general',
             columns: [
-                'fiscal_code', 'full_name', 'gender', 'date_of_birth', 'place_of_birth', 'note',
-                'country', 'postcode', 'region', 'province', 'city', 'address',
+                'fiscal_code',
+                'full_name', 'gender', 'dob', 'pob', 'note',
+                'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
                 'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number',
-                'joint_fc', 'guarantor_fc', 'erede_fc', 'other_fc', 'possible_guarantor_fc'
+                'borrower_ndg', 'gbv', 'dbt_date', 'originator', 'credit_type'
+            ]
+        },
+        {
+            id: 'guarantee_data_table',
+            name: 'guarantee',
+            columns: [
+                'guarantee_fiscal_code',
+                'full_name', 'gender', 'dob', 'pob', 'note',
+                'country', 'postcode', 'region', 'province', 'city', 'address',
+                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number', 'vat_number',
+                'main_borrower_ndg', 'guarantee_ndg', 'guarantee_type', 'guarantee limit'
+            ]
+        },
+        {
+            id: 'join_borrower_table',
+            name: 'join_borrower',
+            columns: [
+                'join_borrower_fiscal_code',
+                'full_name', 'gender', 'dob', 'pob', 'note',
+                'country', 'postcode', 'region', 'province', 'city', 'address',
+                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number', 'vat_number',
+                'main_borrower_ndg', 'join_borrower_ndg'
+            ]
+        },
+        {
+            id: 'asset_table',
+            name: 'asset',
+            columns: [
+                'asset_id', 'ndg', 'type', 'last_evaluation_amount', 'last_evaluation_date',
+                'country', 'postcode', 'region', 'province', 'city', 'address',
+                'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
             ]
         }
     ]);
     const [mappings, setMappings] = useState<ColumnMapping[]>([]);
     const [draggedItem, setDraggedItem] = useState<SourceColumn | null>(null);
-    const [newTableName, setNewTableName] = useState<string>('');
-    const [newColumnName, setNewColumnName] = useState<string>('');
-    const [selectedTableId, setSelectedTableId] = useState<string>('');
+    // const [newTableName, setNewTableName] = useState<string>('');
+    // const [newColumnName, setNewColumnName] = useState<string>('');
+    // const [selectedTableId, ] = useState<string>('');
 
     // Export states
     const [isExporting, setIsExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState<string>('');
+    // Global filter for all tables
+    const [globalFilter, setGlobalFilter] = useState<string>('');
 
     // Helper function to check if a column is mapped
     const isColumnMapped = useCallback((fileName: string, sheetName: string, columnName: string): boolean => {
@@ -85,6 +119,19 @@ const JsonMapperVisualizer: React.FC = () => {
             mapping.source.value === columnName
         ).length;
     }, [mappings]);
+
+    // Filter columns based on global search term
+
+    const getFilteredColumns = useCallback((table: DestinationTable): string[] => {
+        if (!globalFilter.trim()) {
+            return table.columns;
+        }
+
+        return table.columns.filter(column =>
+            column.toLowerCase().includes(globalFilter.toLowerCase())
+        );
+
+    }, [globalFilter]);
 
     const toggleNode = useCallback((path: string): void => {
         setExpandedNodes(prev => {
@@ -132,30 +179,30 @@ const JsonMapperVisualizer: React.FC = () => {
         setMappings(prev => prev.filter(m => m.id !== mappingId));
     }, []);
 
-    const addTable = useCallback((): void => {
-        if (newTableName.trim()) {
-            const newTable: DestinationTable = {
-                id: Date.now().toString(),
-                name: newTableName.trim(),
-                columns: []
-            };
-            setDestinationTables(prev => [...prev, newTable]);
-            setNewTableName('');
-        }
-    }, [newTableName]);
-
-    const addColumn = useCallback((): void => {
-        if (newColumnName.trim() && selectedTableId) {
-            setDestinationTables(prev =>
-                prev.map(table =>
-                    table.id === selectedTableId
-                        ? { ...table, columns: [...table.columns, newColumnName.trim()] }
-                        : table
-                )
-            );
-            setNewColumnName('');
-        }
-    }, [newColumnName, selectedTableId]);
+    // const addTable = useCallback((): void => {
+    //     if (newTableName.trim()) {
+    //         const newTable: DestinationTable = {
+    //             id: Date.now().toString(),
+    //             name: newTableName.trim(),
+    //             columns: []
+    //         };
+    //         setDestinationTables(prev => [...prev, newTable]);
+    //         setNewTableName('');
+    //     }
+    // }, [newTableName]);
+    //
+    // const addColumn = useCallback((): void => {
+    //     if (newColumnName.trim() && selectedTableId) {
+    //         setDestinationTables(prev =>
+    //             prev.map(table =>
+    //                 table.id === selectedTableId
+    //                     ? { ...table, columns: [...table.columns, newColumnName.trim()] }
+    //                     : table
+    //             )
+    //         );
+    //         setNewColumnName('');
+    //     }
+    // }, [newColumnName, selectedTableId]);
 
     const removeTable = useCallback((tableId: string): void => {
         const tableToRemove = destinationTables.find(table => table.id === tableId);
@@ -199,7 +246,6 @@ const JsonMapperVisualizer: React.FC = () => {
             const timestamp = new Date().toLocaleString('vi-VN');
             const exportName = `Mapping Export - ${timestamp}`;
 
-            // Chuẩn bị data cho Backend
             const mappingData = {
                 name: exportName,
                 mappings: mappings,
@@ -470,7 +516,7 @@ const JsonMapperVisualizer: React.FC = () => {
                         <button
                             onClick={exportMappings}
                             disabled={isExporting}
-                            className="bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-white hover:from-amber-600 hover:via-orange-700 hover:to-red-700 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm flex items-center transition-colors rounded-lg"
+                            className="bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-white hover:from-amber-600 hover:via-orange-700 hover:to-red-700 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 text-sm flex items-center transition-colors rounded-lg"
                         >
                             {isExporting ? (
                                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
@@ -481,166 +527,220 @@ const JsonMapperVisualizer: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Add Table Form */}
-                    <div className="bg-gray-100 p-4 border-b">
-                        <div className="flex gap-2 mb-2">
+                    {/* Global Search Filter */}
+                    <div className="bg-white border-b border-gray-200 p-4">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-5 w-5 text-gray-400" />
+                            </div>
                             <input
                                 type="text"
-                                placeholder="New table name"
-                                value={newTableName}
-                                onChange={(e) => setNewTableName(e.target.value)}
-                                className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Search all columns across all tables..."
+                                value={globalFilter}
+                                onChange={(e) => setGlobalFilter(e.target.value)}
+                                className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm shadow-sm"
                             />
-                            <button
-                                onClick={addTable}
-                                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                            >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Add Table
-                            </button>
+                            {globalFilter && (
+                                <button
+                                    onClick={() => setGlobalFilter('')}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-gray-700"
+                                >
+                                    <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                                </button>
+                            )}
                         </div>
-                        <div className="flex gap-2">
-                            <select
-                                value={selectedTableId}
-                                onChange={(e) => setSelectedTableId(e.target.value)}
-                                className="px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">Select table</option>
-                                {destinationTables.map(table => (
-                                    <option key={table.id} value={table.id}>{table.name}</option>
-                                ))}
-                            </select>
-                            <input
-                                type="text"
-                                placeholder="New column name"
-                                value={newColumnName}
-                                onChange={(e) => setNewColumnName(e.target.value)}
-                                className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                                onClick={addColumn}
-                                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                            >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Add Column
-                            </button>
-                        </div>
+                        {globalFilter && (
+                            <div className="mt-2 text-sm text-gray-600">
+                                Searching for: <span className="font-medium text-blue-600">"{globalFilter}"</span>
+                            </div>
+                        )}
                     </div>
 
+                    {/* Add Table Form */}
+                    {/*<div className="bg-gray-100 p-4 border-b">*/}
+                    {/*    <div className="flex gap-2 mb-2">*/}
+                    {/*        <input*/}
+                    {/*            type="text"*/}
+                    {/*            placeholder="New table name"*/}
+                    {/*            value={newTableName}*/}
+                    {/*            onChange={(e) => setNewTableName(e.target.value)}*/}
+                    {/*            className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"*/}
+                    {/*        />*/}
+                    {/*        <button*/}
+                    {/*            onClick={addTable}*/}
+                    {/*            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"*/}
+                    {/*        >*/}
+                    {/*            <Plus className="w-4 h-4 mr-1" />*/}
+                    {/*            Add Table*/}
+                    {/*        </button>*/}
+                    {/*    </div>*/}
+                    {/*    <div className="flex gap-2">*/}
+                    {/*        <select*/}
+                    {/*            value={selectedTableId}*/}
+                    {/*            onChange={(e) => setSelectedTableId(e.target.value)}*/}
+                    {/*            className="px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"*/}
+                    {/*        >*/}
+                    {/*            <option value="">Select table</option>*/}
+                    {/*            {destinationTables.map(table => (*/}
+                    {/*                <option key={table.id} value={table.id}>{table.name}</option>*/}
+                    {/*            ))}*/}
+                    {/*        </select>*/}
+                    {/*        <input*/}
+                    {/*            type="text"*/}
+                    {/*            placeholder="New column name"*/}
+                    {/*            value={newColumnName}*/}
+                    {/*            onChange={(e) => setNewColumnName(e.target.value)}*/}
+                    {/*            className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"*/}
+                    {/*        />*/}
+                    {/*        <button*/}
+                    {/*            onClick={addColumn}*/}
+                    {/*            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"*/}
+                    {/*        >*/}
+                    {/*            <Plus className="w-4 h-4 mr-1" />*/}
+                    {/*            Add Column*/}
+                    {/*        </button>*/}
+                    {/*    </div>*/}
+                    {/*</div>*/}
+
                     <div className="flex-1 overflow-auto p-4">
-                        {destinationTables.map(table => (
-                            <div key={table.id} className="mb-6 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                                {/* Table Header */}
-                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="bg-green-100 p-2 rounded-lg mr-3">
-                                                <Table className="w-5 h-5 text-green-600" />
+                        {destinationTables.map(table => {
+                            const filteredColumns = getFilteredColumns(table);
+
+                            // Hide table completely if no columns match the filter
+                            if (globalFilter && filteredColumns.length === 0) {
+                                return null;
+                            }
+
+                            return (
+                                <div key={table.id} className="mb-6 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                                    {/* Table Header */}
+                                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center">
+                                                <div className="bg-green-100 p-2 rounded-lg mr-3">
+                                                    <Table className="w-5 h-5 text-green-600" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-gray-800 text-lg">{table.name}</h3>
+                                                    <p className="text-sm text-gray-500">
+                                                        {globalFilter && filteredColumns.length !== table.columns.length ? (
+                                                            <>
+                                                                {filteredColumns.length} of {table.columns.length} columns matching "{globalFilter}"
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {table.columns.length} {table.columns.length === 1 ? 'column' : 'columns'}
+                                                            </>
+                                                        )}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="font-semibold text-gray-800 text-lg">{table.name}</h3>
-                                                <p className="text-sm text-gray-500">
-                                                    {table.columns.length} {table.columns.length === 1 ? 'column' : 'columns'}
-                                                </p>
-                                            </div>
+                                            <button
+                                                onClick={() => removeTable(table.id)}
+                                                className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-all duration-200"
+                                                title="Delete table"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => removeTable(table.id)}
-                                            className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-all duration-200"
-                                            title="Delete table"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
                                     </div>
-                                </div>
 
-                                {/* Table Content */}
-                                <div className="p-6">
-                                    {table.columns.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                                                <Columns className="w-8 h-8 text-gray-400" />
+                                    {/* Table Content */}
+                                    <div className="p-6">
+                                        {table.columns.length === 0 ? (
+                                            <div className="text-center py-8">
+                                                <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                                    <Columns className="w-8 h-8 text-gray-400" />
+                                                </div>
+                                                <div className="text-gray-500 font-medium mb-1">No columns defined</div>
+                                                <div className="text-sm text-gray-400">Add columns using the form above</div>
                                             </div>
-                                            <div className="text-gray-500 font-medium mb-1">No columns defined</div>
-                                            <div className="text-sm text-gray-400">Add columns using the form above</div>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {table.columns.map((column, index) => {
-                                                const columnMappings = mappings.filter(m =>
-                                                    m.destination.table === table.name && m.destination.column === column
-                                                );
+                                        ) : filteredColumns.length === 0 && globalFilter ? (
+                                            <div className="text-center py-8">
+                                                <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                                    <Search className="w-8 h-8 text-gray-400" />
+                                                </div>
+                                                <div className="text-gray-500 font-medium mb-1">No matching columns in {table.name}</div>
+                                                <div className="text-sm text-gray-400">No columns match "{globalFilter}" in this table</div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {filteredColumns.map((column, index) => {
+                                                    const columnMappings = mappings.filter(m =>
+                                                        m.destination.table === table.name && m.destination.column === column
+                                                    );
 
-                                                return (
-                                                    <div
-                                                        key={index}
-                                                        className="group border-2 border-gray-200 rounded-xl p-4 hover:border-green-300 hover:shadow-md transition-all duration-200 bg-gradient-to-r from-white to-gray-50"
-                                                        onDragOver={handleDragOver}
-                                                        onDrop={(e) => handleDrop(e, table, column)}
-                                                    >
-                                                        {/* Column Header */}
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center">
-                                                                <div className="bg-blue-100 p-1.5 rounded-lg mr-3">
-                                                                    <Columns className="w-4 h-4 text-blue-600" />
-                                                                </div>
-                                                                <div>
-                                                                    <div className="font-semibold text-gray-800">{column}</div>
-                                                                    <div className="text-xs text-gray-500">
-                                                                        {columnMappings.length > 0
-                                                                            ? `${columnMappings.length} mapping${columnMappings.length > 1 ? 's' : ''}`
-                                                                            : 'Drop column here'
-                                                                        }
+                                                    return (
+                                                        <div
+                                                            key={index}
+                                                            className="group border-2 border-gray-200 rounded-xl p-4 hover:border-green-300 hover:shadow-md transition-all duration-200 bg-gradient-to-r from-white to-gray-50"
+                                                            onDragOver={handleDragOver}
+                                                            onDrop={(e) => handleDrop(e, table, column)}
+                                                        >
+                                                            {/* Column Header */}
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <div className="flex items-center">
+                                                                    <div className="bg-blue-100 p-1.5 rounded-lg mr-3">
+                                                                        <Columns className="w-4 h-4 text-blue-600" />
                                                                     </div>
-                                                                </div>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => removeColumn(table.id, column)}
-                                                                className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200"
-                                                                title="Delete column"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Mappings */}
-                                                        {columnMappings.length > 0 && (
-                                                            <div className="space-y-2">
-                                                                {columnMappings.map(mapping => (
-                                                                    <div key={mapping.id} className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <div className="flex-1">
-                                                                                <div className="flex items-center mb-1">
-                                                                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                                                                                    <span className="text-sm font-medium text-blue-700">Mapped from:</span>
-                                                                                </div>
-                                                                                <div className="text-sm text-gray-700 ml-4">
-                                                                                    {mapping.source.file} → {mapping.source.sheet} → <span className="font-medium">{mapping.source.value}</span>
-                                                                                </div>
-                                                                                <div className="text-xs text-gray-500 ml-4 mt-1">
-                                                                                    Type: {mapping.source.type}
-                                                                                </div>
-                                                                            </div>
-                                                                            <button
-                                                                                onClick={() => removeMapping(mapping.id)}
-                                                                                className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200 ml-3"
-                                                                                title="Remove mapping"
-                                                                            >
-                                                                                <Trash2 className="w-3 h-3" />
-                                                                            </button>
+                                                                    <div>
+                                                                        <div className="font-semibold text-gray-800">{column}</div>
+                                                                        <div className="text-xs text-gray-500">
+                                                                            {columnMappings.length > 0
+                                                                                ? `${columnMappings.length} mapping${columnMappings.length > 1 ? 's' : ''}`
+                                                                                : 'Drop column here'
+                                                                            }
                                                                         </div>
                                                                     </div>
-                                                                ))}
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => removeColumn(table.id, column)}
+                                                                    className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200"
+                                                                    title="Delete column"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+
+                                                            {/* Mappings */}
+                                                            {columnMappings.length > 0 && (
+                                                                <div className="space-y-2">
+                                                                    {columnMappings.map(mapping => (
+                                                                        <div key={mapping.id} className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <div className="flex-1">
+                                                                                    <div className="flex items-center mb-1">
+                                                                                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                                                                                        <span className="text-sm font-medium text-blue-700">Mapped from:</span>
+                                                                                    </div>
+                                                                                    <div className="text-sm text-gray-700 ml-4">
+                                                                                        {mapping.source.file} → {mapping.source.sheet} → <span className="font-medium">{mapping.source.value}</span>
+                                                                                    </div>
+                                                                                    <div className="text-xs text-gray-500 ml-4 mt-1">
+                                                                                        Type: {mapping.source.type}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <button
+                                                                                    onClick={() => removeMapping(mapping.id)}
+                                                                                    className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200 ml-3"
+                                                                                    title="Remove mapping"
+                                                                                >
+                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
 
                         {/* Empty state for no tables */}
                         {destinationTables.length === 0 && (

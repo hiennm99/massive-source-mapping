@@ -3,8 +3,8 @@ import { toast } from 'sonner';
 
 interface MappingExportData {
     name: string;
-    mappings: any;
-    destination_tables: any;
+    mappings: [];
+    destination_tables: [];
 }
 
 interface AirtableRecord {
@@ -48,7 +48,7 @@ const validateConfig = (): void => {
     }
 };
 
-export const saveMappingExport = async (data: MappingExportData): Promise<any> => {
+export const saveMappingExport = async (data: MappingExportData): Promise<unknown> => {
     try {
         validateConfig();
 
@@ -95,7 +95,7 @@ export const saveMappingExport = async (data: MappingExportData): Promise<any> =
     }
 };
 
-export const getMappingExports = async (): Promise<any[]> => {
+export const getMappingExports = async (): Promise<unknown[]> => {
     try {
         validateConfig();
 
