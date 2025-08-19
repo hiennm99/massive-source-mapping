@@ -92,15 +92,36 @@ const JsonMapperVisualizer: React.FC = () => {
     ]);
     const [mappings, setMappings] = useState<ColumnMapping[]>([]);
     const [draggedItem, setDraggedItem] = useState<SourceColumn | null>(null);
-    // const [newTableName, setNewTableName] = useState<string>('');
-    // const [newColumnName, setNewColumnName] = useState<string>('');
-    // const [selectedTableId, ] = useState<string>('');
 
     // Export states
     const [isExporting, setIsExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState<string>('');
     // Global filter for all tables
     const [globalFilter, setGlobalFilter] = useState<string>('');
+
+    // Helper function to check if a file has any mappings
+    const isFileMapped = useCallback((fileName: string): boolean => {
+        return mappings.some(mapping => mapping.source.file === fileName);
+    }, [mappings]);
+
+    // Helper function to check if a sheet has any mappings
+    const isSheetMapped = useCallback((fileName: string, sheetName: string): boolean => {
+        return mappings.some(mapping =>
+            mapping.source.file === fileName && mapping.source.sheet === sheetName
+        );
+    }, [mappings]);
+
+    // Helper function to get the count of mappings for a file
+    const getFileMappingCount = useCallback((fileName: string): number => {
+        return mappings.filter(mapping => mapping.source.file === fileName).length;
+    }, [mappings]);
+
+    // Helper function to get the count of mappings for a sheet
+    const getSheetMappingCount = useCallback((fileName: string, sheetName: string): number => {
+        return mappings.filter(mapping =>
+            mapping.source.file === fileName && mapping.source.sheet === sheetName
+        ).length;
+    }, [mappings]);
 
     // Helper function to check if a column is mapped
     const isColumnMapped = useCallback((fileName: string, sheetName: string, columnName: string): boolean => {
@@ -121,7 +142,6 @@ const JsonMapperVisualizer: React.FC = () => {
     }, [mappings]);
 
     // Filter columns based on global search term
-
     const getFilteredColumns = useCallback((table: DestinationTable): string[] => {
         if (!globalFilter.trim()) {
             return table.columns;
@@ -178,31 +198,6 @@ const JsonMapperVisualizer: React.FC = () => {
     const removeMapping = useCallback((mappingId: number): void => {
         setMappings(prev => prev.filter(m => m.id !== mappingId));
     }, []);
-
-    // const addTable = useCallback((): void => {
-    //     if (newTableName.trim()) {
-    //         const newTable: DestinationTable = {
-    //             id: Date.now().toString(),
-    //             name: newTableName.trim(),
-    //             columns: []
-    //         };
-    //         setDestinationTables(prev => [...prev, newTable]);
-    //         setNewTableName('');
-    //     }
-    // }, [newTableName]);
-    //
-    // const addColumn = useCallback((): void => {
-    //     if (newColumnName.trim() && selectedTableId) {
-    //         setDestinationTables(prev =>
-    //             prev.map(table =>
-    //                 table.id === selectedTableId
-    //                     ? { ...table, columns: [...table.columns, newColumnName.trim()] }
-    //                     : table
-    //             )
-    //         );
-    //         setNewColumnName('');
-    //     }
-    // }, [newColumnName, selectedTableId]);
 
     const removeTable = useCallback((tableId: string): void => {
         const tableToRemove = destinationTables.find(table => table.id === tableId);
@@ -284,28 +279,51 @@ const JsonMapperVisualizer: React.FC = () => {
                 {jsonData.map((fileData, fileIndex) => {
                     const fileName = fileData.file.split('\\').pop() || fileData.file;
                     const fileKey = `file-${fileIndex}`;
+                    const isMappedFile = isFileMapped(fileName);
+                    const fileMappingCount = getFileMappingCount(fileName);
 
                     return (
                         <div key={fileIndex} className="bg-white rounded-lg shadow-sm border border-gray-200">
-                            {/* File Header */}
+                            {/* File Header - With mapping status styling */}
                             <div
-                                className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-4 cursor-pointer hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                                className={`border-b border-gray-200 p-4 cursor-pointer transition-colors ${
+                                    isMappedFile
+                                        ? 'bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100'
+                                        : 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100'
+                                }`}
                                 onClick={() => toggleNode(fileKey)}
                             >
-                                <div className="flex items-center">
-                                    {expandedNodes.has(fileKey) ?
-                                        <ChevronDown className="w-5 h-5 text-blue-600 mr-2" /> :
-                                        <ChevronRight className="w-5 h-5 text-blue-600 mr-2" />
-                                    }
-                                    <File className="w-5 h-5 text-blue-600 mr-3" />
-                                    <div>
-                                        <h3 className="font-semibold text-gray-800 text-lg">{fileName}</h3>
-                                        <p className="text-sm text-gray-500 mt-1">{fileData.file}</p>
-                                        <div className="flex items-center mt-2">
-                                            <Sheet className="w-4 h-4 text-gray-400 mr-1" />
-                                            <span className="text-sm text-gray-600">{fileData.sheets.length} sheets</span>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        {expandedNodes.has(fileKey) ?
+                                            <ChevronDown className={`w-5 h-5 mr-2 ${isMappedFile ? 'text-red-600' : 'text-blue-600'}`} /> :
+                                            <ChevronRight className={`w-5 h-5 mr-2 ${isMappedFile ? 'text-red-600' : 'text-blue-600'}`} />
+                                        }
+                                        <File className={`w-5 h-5 mr-3 ${isMappedFile ? 'text-red-600' : 'text-blue-600'}`} />
+                                        <div>
+                                            <h3 className="font-semibold text-gray-800 text-lg">{fileName}</h3>
+                                            <p className="text-sm text-gray-500 mt-1">{fileData.file}</p>
+                                            <div className="flex items-center mt-2 space-x-4">
+                                                <div className="flex items-center">
+                                                    <Sheet className="w-4 h-4 text-gray-400 mr-1" />
+                                                    <span className="text-sm text-gray-600">{fileData.sheets.length} sheets</span>
+                                                </div>
+                                                {isMappedFile && (
+                                                    <div className="flex items-center">
+                                                        <Check className="w-4 h-4 text-red-600 mr-1" />
+                                                        <span className="text-sm text-red-600 font-medium">
+                                                            {fileMappingCount} mapping{fileMappingCount > 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                    {isMappedFile && (
+                                        <div className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-medium">
+                                            Mapped
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -316,38 +334,51 @@ const JsonMapperVisualizer: React.FC = () => {
                                         {fileData.sheets.map((sheet, sheetIndex) => {
                                             const sheetKey = `${fileKey}-sheet-${sheetIndex}`;
                                             const hasColumns = sheet.columns && sheet.columns.length > 0;
+                                            const isMappedSheet = isSheetMapped(fileName, sheet.sheet_name);
+                                            const sheetMappingCount = getSheetMappingCount(fileName, sheet.sheet_name);
 
                                             return (
                                                 <div key={sheetIndex} className="border border-gray-200 rounded-lg overflow-hidden">
-                                                    {/* Sheet Header */}
+                                                    {/* Sheet Header - With mapping status styling */}
                                                     <div
-                                                        className="bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
+                                                        className={`p-3 cursor-pointer transition-colors ${
+                                                            isMappedSheet
+                                                                ? 'bg-red-50 hover:bg-red-100'
+                                                                : 'bg-gray-50 hover:bg-gray-100'
+                                                        }`}
                                                         onClick={() => toggleNode(sheetKey)}
                                                     >
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center">
                                                                 {hasColumns ? (
                                                                     expandedNodes.has(sheetKey) ?
-                                                                        <ChevronDown className="w-4 h-4 text-gray-600 mr-2" /> :
-                                                                        <ChevronRight className="w-4 h-4 text-gray-600 mr-2" />
+                                                                        <ChevronDown className={`w-4 h-4 mr-2 ${isMappedSheet ? 'text-red-600' : 'text-gray-600'}`} /> :
+                                                                        <ChevronRight className={`w-4 h-4 mr-2 ${isMappedSheet ? 'text-red-600' : 'text-gray-600'}`} />
                                                                 ) : (
                                                                     <div className="w-4 h-4 mr-2" />
                                                                 )}
-                                                                <Sheet className="w-4 h-4 text-gray-600 mr-2" />
-                                                                <span className="font-medium text-gray-800">{sheet.sheet_name}</span>
+                                                                <Sheet className={`w-4 h-4 mr-2 ${isMappedSheet ? 'text-red-600' : 'text-gray-600'}`} />
+                                                                <span className={`font-medium ${isMappedSheet ? 'text-red-800' : 'text-gray-800'}`}>
+                                                                    {sheet.sheet_name}
+                                                                </span>
+                                                                {isMappedSheet && (
+                                                                    <div className="ml-2 bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">
+                                                                        {sheetMappingCount} mapped
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center space-x-3">
                                                                 <div className="flex items-center">
                                                                     <div className={`w-3 h-3 rounded-full mr-2 ${sheet.have_header ? 'bg-green-400' : 'bg-red-400'}`}></div>
                                                                     <span className="text-sm text-gray-600">
-                                    {sheet.have_header ? 'Has Header' : 'No Header'}
-                                  </span>
+                                                                        {sheet.have_header ? 'Has Header' : 'No Header'}
+                                                                    </span>
                                                                 </div>
                                                                 <div className="flex items-center">
                                                                     <Columns className="w-4 h-4 text-gray-500 mr-1" />
                                                                     <span className="text-sm text-gray-600">
-                                    {sheet.columns?.length || 0} columns
-                                  </span>
+                                                                        {sheet.columns?.length || 0} columns
+                                                                    </span>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -443,7 +474,7 @@ const JsonMapperVisualizer: React.FC = () => {
                 })}
             </div>
         );
-    }, [jsonData, expandedNodes, handleDragStart, toggleNode, isColumnMapped, getColumnMappingCount]);
+    }, [jsonData, expandedNodes, handleDragStart, toggleNode, isColumnMapped, getColumnMappingCount, isFileMapped, isSheetMapped, getFileMappingCount, getSheetMappingCount]);
 
     return (
         <>
@@ -555,52 +586,6 @@ const JsonMapperVisualizer: React.FC = () => {
                             </div>
                         )}
                     </div>
-
-                    {/* Add Table Form */}
-                    {/*<div className="bg-gray-100 p-4 border-b">*/}
-                    {/*    <div className="flex gap-2 mb-2">*/}
-                    {/*        <input*/}
-                    {/*            type="text"*/}
-                    {/*            placeholder="New table name"*/}
-                    {/*            value={newTableName}*/}
-                    {/*            onChange={(e) => setNewTableName(e.target.value)}*/}
-                    {/*            className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"*/}
-                    {/*        />*/}
-                    {/*        <button*/}
-                    {/*            onClick={addTable}*/}
-                    {/*            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"*/}
-                    {/*        >*/}
-                    {/*            <Plus className="w-4 h-4 mr-1" />*/}
-                    {/*            Add Table*/}
-                    {/*        </button>*/}
-                    {/*    </div>*/}
-                    {/*    <div className="flex gap-2">*/}
-                    {/*        <select*/}
-                    {/*            value={selectedTableId}*/}
-                    {/*            onChange={(e) => setSelectedTableId(e.target.value)}*/}
-                    {/*            className="px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"*/}
-                    {/*        >*/}
-                    {/*            <option value="">Select table</option>*/}
-                    {/*            {destinationTables.map(table => (*/}
-                    {/*                <option key={table.id} value={table.id}>{table.name}</option>*/}
-                    {/*            ))}*/}
-                    {/*        </select>*/}
-                    {/*        <input*/}
-                    {/*            type="text"*/}
-                    {/*            placeholder="New column name"*/}
-                    {/*            value={newColumnName}*/}
-                    {/*            onChange={(e) => setNewColumnName(e.target.value)}*/}
-                    {/*            className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"*/}
-                    {/*        />*/}
-                    {/*        <button*/}
-                    {/*            onClick={addColumn}*/}
-                    {/*            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"*/}
-                    {/*        >*/}
-                    {/*            <Plus className="w-4 h-4 mr-1" />*/}
-                    {/*            Add Column*/}
-                    {/*        </button>*/}
-                    {/*    </div>*/}
-                    {/*</div>*/}
 
                     <div className="flex-1 overflow-auto p-4">
                         {destinationTables.map(table => {
