@@ -1,7 +1,8 @@
 import React, {useState, useCallback} from 'react';
-import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, Download, File, Sheet, Columns, Check, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Table, Database, Plus, Trash2, File, Sheet, Columns, Check, Loader2, Save } from 'lucide-react';
 import SchannedSchema from'../data/scanned_schema.json'
-import { saveMappingExport } from "../services/mappingExportService.tsx";
+import Navbar from "./Navbar.tsx";
+import { saveMappingExport } from "../services/mappingExportService2.tsx";
 
 // Type definitions
 interface SourceColumn {
@@ -40,7 +41,8 @@ interface ColumnMapping {
 }
 
 const JsonMapperVisualizer: React.FC = () => {
-    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     const [jsonData] = useState<FileData[]>(SchannedSchema);
 
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -197,14 +199,14 @@ const JsonMapperVisualizer: React.FC = () => {
             const timestamp = new Date().toLocaleString('vi-VN');
             const exportName = `Mapping Export - ${timestamp}`;
 
-            // Chuẩn bị data cho Airtable
+            // Chuẩn bị data cho Backend
             const mappingData = {
                 name: exportName,
                 mappings: mappings,
-                destination_tables: destinationTables // Đổi tên để match với interface
+                destination_tables: destinationTables
             };
 
-            // Lưu lên Airtable
+            // Lưu lên Database
             const result = await saveMappingExport(mappingData);
             setExportMessage('Saved mapping successfully!');
 
@@ -214,12 +216,12 @@ const JsonMapperVisualizer: React.FC = () => {
                 setMappings([]);
             }, 3000);
 
-            console.log('Saved to Airtable:', result);
+            console.log('Saved to Database:', result);
 
         } catch (error) {
             console.error('Export error:', error);
-            // @ts-ignore
-            setExportMessage(`Error when saving data: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            setExportMessage(`Error when saving data: ${errorMessage}`);
 
             // Auto clear error message after 5 seconds
             setTimeout(() => {
@@ -398,259 +400,263 @@ const JsonMapperVisualizer: React.FC = () => {
     }, [jsonData, expandedNodes, handleDragStart, toggleNode, isColumnMapped, getColumnMappingCount]);
 
     return (
-        <div className="h-screen flex bg-gray-50 relative">
-            {/* Saving Overlay */}
-            {isExporting && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 max-w-sm mx-4">
-                        {/* Animated spinner */}
-                        <div className="relative">
-                            <div className="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
-                            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div>
-                        </div>
-
-                        {/* Content */}
-                        <div className="text-center">
-                            <h3 className="text-xl font-semibold text-gray-800 mb-2">Saving Your Mapping</h3>
-                            <p className="text-gray-600">Please wait while we export your data...</p>
-                        </div>
-
-                        {/* Progress dots animation */}
-                        <div className="flex space-x-2">
-                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Success/Error Message Toast */}
-            {exportMessage && (
-                <div className="fixed top-4 right-4 z-40 max-w-md">
-                    <div className={`rounded-lg shadow-lg p-4 border-l-4 ${
-                        exportMessage.includes('Error')
-                            ? 'bg-red-50 border-red-400 text-red-800'
-                            : 'bg-green-50 border-green-400 text-green-800'
-                    }`}>
-                        <div className="flex items-center">
-                            {exportMessage.includes('Error') ? (
-                                <div className="w-5 h-5 text-red-600 mr-2">❌</div>
-                            ) : (
-                                <div className="w-5 h-5 text-green-600 mr-2">✅</div>
-                            )}
-                            <span className="font-medium">{exportMessage}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* JSON Source Panel */}
-            <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 flex items-center">
-                    <Database className="w-5 h-5 mr-2" />
-                    <h2 className="text-lg font-semibold">Source Data Structure</h2>
-                </div>
-                <div className="flex-1 overflow-auto p-4">
-                    {renderDataStructure()}
-                </div>
-            </div>
-
-            {/* Destination Tables Panel */}
-            <div className="w-1/2 flex flex-col">
-                <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 flex items-center justify-between">
-                    <div className="flex items-center">
-                        <Table className="w-5 h-5 mr-2" />
-                        <h2 className="text-lg font-semibold">Destination Tables</h2>
-                    </div>
-                    <button
-                        onClick={exportMappings}
-                        disabled={isExporting}
-                        className="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm flex items-center transition-colors"
-                    >
-                        {isExporting ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                            <Download className="w-4 h-4 mr-1" />
-                        )}
-                        {isExporting ? 'Saving...' : 'Export'}
-                    </button>
-                </div>
-
-                {/* Add Table Form */}
-                <div className="bg-gray-100 p-4 border-b">
-                    <div className="flex gap-2 mb-2">
-                        <input
-                            type="text"
-                            placeholder="New table name"
-                            value={newTableName}
-                            onChange={(e) => setNewTableName(e.target.value)}
-                            className="flex-1 px-3 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button
-                            onClick={addTable}
-                            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors flex items-center"
-                        >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Table
-                        </button>
-                    </div>
-                    <div className="flex gap-2">
-                        <select
-                            value={selectedTableId}
-                            onChange={(e) => setSelectedTableId(e.target.value)}
-                            className="px-3 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">Select table</option>
-                            {destinationTables.map(table => (
-                                <option key={table.id} value={table.id}>{table.name}</option>
-                            ))}
-                        </select>
-                        <input
-                            type="text"
-                            placeholder="New column name"
-                            value={newColumnName}
-                            onChange={(e) => setNewColumnName(e.target.value)}
-                            className="flex-1 px-3 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button
-                            onClick={addColumn}
-                            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors flex items-center"
-                        >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Column
-                        </button>
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-auto p-4">
-                    {destinationTables.map(table => (
-                        <div key={table.id} className="mb-6 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                            {/* Table Header */}
-                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <div className="bg-green-100 p-2 rounded-lg mr-3">
-                                            <Table className="w-5 h-5 text-green-600" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-800 text-lg">{table.name}</h3>
-                                            <p className="text-sm text-gray-500">
-                                                {table.columns.length} {table.columns.length === 1 ? 'column' : 'columns'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => removeTable(table.id)}
-                                        className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-all duration-200"
-                                        title="Delete table"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+        <>
+            <Navbar />
+            <div className="h-screen flex bg-gray-50 relative">
+                {/* Saving Overlay */}
+                {isExporting && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 max-w-sm mx-4">
+                            {/* Animated spinner */}
+                            <div className="relative">
+                                <div className="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+                                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div>
                             </div>
 
-                            {/* Table Content */}
-                            <div className="p-6">
-                                {table.columns.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                                            <Columns className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                        <div className="text-gray-500 font-medium mb-1">No columns defined</div>
-                                        <div className="text-sm text-gray-400">Add columns using the form above</div>
-                                    </div>
+                            {/* Content */}
+                            <div className="text-center">
+                                <h3 className="text-xl font-semibold text-gray-800 mb-2">Saving Your Mapping</h3>
+                                <p className="text-gray-600">Please wait while we export your data...</p>
+                            </div>
+
+                            {/* Progress dots animation */}
+                            <div className="flex space-x-2">
+                                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Success/Error Message Toast */}
+                {exportMessage && (
+                    <div className="fixed top-4 right-4 z-40 max-w-md">
+                        <div className={`rounded-lg shadow-lg p-4 border-l-4 ${
+                            exportMessage.includes('Error')
+                                ? 'bg-red-50 border-red-400 text-red-800'
+                                : 'bg-green-50 border-green-400 text-green-800'
+                        }`}>
+                            <div className="flex items-center">
+                                {exportMessage.includes('Error') ? (
+                                    <div className="w-5 h-5 text-red-600 mr-2">❌</div>
                                 ) : (
-                                    <div className="space-y-3">
-                                        {table.columns.map((column, index) => {
-                                            const columnMappings = mappings.filter(m =>
-                                                m.destination.table === table.name && m.destination.column === column
-                                            );
+                                    <div className="w-5 h-5 text-green-600 mr-2">✅</div>
+                                )}
+                                <span className="font-medium">{exportMessage}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                                            return (
-                                                <div
-                                                    key={index}
-                                                    className="group border-2 border-gray-200 rounded-xl p-4 hover:border-green-300 hover:shadow-md transition-all duration-200 bg-gradient-to-r from-white to-gray-50"
-                                                    onDragOver={handleDragOver}
-                                                    onDrop={(e) => handleDrop(e, table, column)}
-                                                >
-                                                    {/* Column Header */}
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="flex items-center">
-                                                            <div className="bg-blue-100 p-1.5 rounded-lg mr-3">
-                                                                <Columns className="w-4 h-4 text-blue-600" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-semibold text-gray-800">{column}</div>
-                                                                <div className="text-xs text-gray-500">
-                                                                    {columnMappings.length > 0
-                                                                        ? `${columnMappings.length} mapping${columnMappings.length > 1 ? 's' : ''}`
-                                                                        : 'Drop column here'
-                                                                    }
+                {/* JSON Source Panel */}
+                <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
+                    <div className="bg-gradient-to-r from-cyan-500 via-blue-600 to-blue-700 text-white p-4 flex items-center">
+                        <Database className="w-5 h-5 mr-2" />
+                        <h2 className="text-lg font-semibold">Source Data Structure</h2>
+                    </div>
+                    <div className="flex-1 overflow-auto p-4">
+                        {renderDataStructure()}
+                    </div>
+                </div>
+
+                {/* Destination Tables Panel */}
+                <div className="w-1/2 flex flex-col">
+                    <div className="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-600  text-white p-4 flex items-center justify-between">
+                        <div className="flex items-center">
+                            <Table className="w-5 h-5 mr-2" />
+                            <h2 className="text-lg font-semibold">Destination Tables</h2>
+                        </div>
+                        <button
+                            onClick={exportMappings}
+                            disabled={isExporting}
+                            className="bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-white hover:from-amber-600 hover:via-orange-700 hover:to-red-700 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded text-sm flex items-center transition-colors rounded-lg"
+                        >
+                            {isExporting ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4 mr-1 text-white" />
+                            )}
+                            {isExporting ? 'Saving...' : 'Save'}
+                        </button>
+                    </div>
+
+                    {/* Add Table Form */}
+                    <div className="bg-gray-100 p-4 border-b">
+                        <div className="flex gap-2 mb-2">
+                            <input
+                                type="text"
+                                placeholder="New table name"
+                                value={newTableName}
+                                onChange={(e) => setNewTableName(e.target.value)}
+                                className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                onClick={addTable}
+                                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                            >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Table
+                            </button>
+                        </div>
+                        <div className="flex gap-2">
+                            <select
+                                value={selectedTableId}
+                                onChange={(e) => setSelectedTableId(e.target.value)}
+                                className="px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">Select table</option>
+                                {destinationTables.map(table => (
+                                    <option key={table.id} value={table.id}>{table.name}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="text"
+                                placeholder="New column name"
+                                value={newColumnName}
+                                onChange={(e) => setNewColumnName(e.target.value)}
+                                className="flex-1 px-3 py-1 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                onClick={addColumn}
+                                className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                            >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Column
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-auto p-4">
+                        {destinationTables.map(table => (
+                            <div key={table.id} className="mb-6 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+                                {/* Table Header */}
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="bg-green-100 p-2 rounded-lg mr-3">
+                                                <Table className="w-5 h-5 text-green-600" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-gray-800 text-lg">{table.name}</h3>
+                                                <p className="text-sm text-gray-500">
+                                                    {table.columns.length} {table.columns.length === 1 ? 'column' : 'columns'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => removeTable(table.id)}
+                                            className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-all duration-200"
+                                            title="Delete table"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Table Content */}
+                                <div className="p-6">
+                                    {table.columns.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                                <Columns className="w-8 h-8 text-gray-400" />
+                                            </div>
+                                            <div className="text-gray-500 font-medium mb-1">No columns defined</div>
+                                            <div className="text-sm text-gray-400">Add columns using the form above</div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {table.columns.map((column, index) => {
+                                                const columnMappings = mappings.filter(m =>
+                                                    m.destination.table === table.name && m.destination.column === column
+                                                );
+
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        className="group border-2 border-gray-200 rounded-xl p-4 hover:border-green-300 hover:shadow-md transition-all duration-200 bg-gradient-to-r from-white to-gray-50"
+                                                        onDragOver={handleDragOver}
+                                                        onDrop={(e) => handleDrop(e, table, column)}
+                                                    >
+                                                        {/* Column Header */}
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center">
+                                                                <div className="bg-blue-100 p-1.5 rounded-lg mr-3">
+                                                                    <Columns className="w-4 h-4 text-blue-600" />
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => removeColumn(table.id, column)}
-                                                            className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200"
-                                                            title="Delete column"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Mappings */}
-                                                    {columnMappings.length > 0 && (
-                                                        <div className="space-y-2">
-                                                            {columnMappings.map(mapping => (
-                                                                <div key={mapping.id} className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex-1">
-                                                                            <div className="flex items-center mb-1">
-                                                                                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                                                                                <span className="text-sm font-medium text-blue-700">Mapped from:</span>
-                                                                            </div>
-                                                                            <div className="text-sm text-gray-700 ml-4">
-                                                                                {mapping.source.file} → {mapping.source.sheet} → <span className="font-medium">{mapping.source.value}</span>
-                                                                            </div>
-                                                                            <div className="text-xs text-gray-500 ml-4 mt-1">
-                                                                                Type: {mapping.source.type}
-                                                                            </div>
-                                                                        </div>
-                                                                        <button
-                                                                            onClick={() => removeMapping(mapping.id)}
-                                                                            className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200 ml-3"
-                                                                            title="Remove mapping"
-                                                                        >
-                                                                            <Trash2 className="w-3 h-3" />
-                                                                        </button>
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-800">{column}</div>
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {columnMappings.length > 0
+                                                                            ? `${columnMappings.length} mapping${columnMappings.length > 1 ? 's' : ''}`
+                                                                            : 'Drop column here'
+                                                                        }
                                                                     </div>
                                                                 </div>
-                                                            ))}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => removeColumn(table.id, column)}
+                                                                className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200"
+                                                                title="Delete column"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
 
-                    {/* Empty state for no tables */}
-                    {destinationTables.length === 0 && (
-                        <div className="text-center py-12">
-                            <div className="bg-gray-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                                <Table className="w-10 h-10 text-gray-400" />
+                                                        {/* Mappings */}
+                                                        {columnMappings.length > 0 && (
+                                                            <div className="space-y-2">
+                                                                {columnMappings.map(mapping => (
+                                                                    <div key={mapping.id} className="bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex-1">
+                                                                                <div className="flex items-center mb-1">
+                                                                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                                                                                    <span className="text-sm font-medium text-blue-700">Mapped from:</span>
+                                                                                </div>
+                                                                                <div className="text-sm text-gray-700 ml-4">
+                                                                                    {mapping.source.file} → {mapping.source.sheet} → <span className="font-medium">{mapping.source.value}</span>
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-500 ml-4 mt-1">
+                                                                                    Type: {mapping.source.type}
+                                                                                </div>
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={() => removeMapping(mapping.id)}
+                                                                                className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all duration-200 ml-3"
+                                                                                title="Remove mapping"
+                                                                            >
+                                                                                <Trash2 className="w-3 h-3" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div className="text-gray-500 font-medium mb-2">No destination tables</div>
-                            <div className="text-sm text-gray-400">Create your first table using the form above</div>
-                        </div>
-                    )}
+                        ))}
+
+                        {/* Empty state for no tables */}
+                        {destinationTables.length === 0 && (
+                            <div className="text-center py-12">
+                                <div className="bg-gray-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                                    <Table className="w-10 h-10 text-gray-400" />
+                                </div>
+                                <div className="text-gray-500 font-medium mb-2">No destination tables</div>
+                                <div className="text-sm text-gray-400">Create your first table using the form above</div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
+
     );
 };
 
