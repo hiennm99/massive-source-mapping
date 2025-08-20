@@ -59,28 +59,6 @@ const JsonMapperVisualizer: React.FC = () => {
             ]
         },
         {
-            id: 'guarantee_data_table',
-            name: 'guarantee',
-            columns: [
-                'guarantee_fiscal_code',
-                'full_name', 'gender', 'dob', 'pob', 'note',
-                'country', 'postcode', 'region', 'province', 'city', 'address',
-                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number', 'vat_number',
-                'main_borrower_ndg', 'guarantee_ndg', 'guarantee_type', 'guarantee limit'
-            ]
-        },
-        {
-            id: 'join_borrower_table',
-            name: 'join_borrower',
-            columns: [
-                'join_borrower_fiscal_code',
-                'full_name', 'gender', 'dob', 'pob', 'note',
-                'country', 'postcode', 'region', 'province', 'city', 'address',
-                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number', 'vat_number',
-                'main_borrower_ndg', 'join_borrower_ndg'
-            ]
-        },
-        {
             id: 'asset_table',
             name: 'asset',
             columns: [
