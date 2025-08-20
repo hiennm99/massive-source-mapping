@@ -124,7 +124,7 @@ const JsonMapperVisualizer: React.FC = () => {
                 />
 
                 {/* Destination Tables Panel */}
-                <div className="w-1/2 flex flex-col">
+                <div className="">
                     <PanelHeader
                         icon={Table}
                         title="Destination Tables"
