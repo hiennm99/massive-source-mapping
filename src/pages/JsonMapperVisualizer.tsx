@@ -24,6 +24,9 @@ const JsonMapperVisualizer: React.FC = () => {
     const [jsonData] = useState<FileData[]>(ScannedSchema);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
+    // Add source filter state
+    const [sourceGlobalFilter, setSourceGlobalFilter] = useState<string>('');
+
     // Custom hooks
     const {
         mappings,
@@ -42,8 +45,8 @@ const JsonMapperVisualizer: React.FC = () => {
 
     const {
         destinationTables,
-        globalFilter,
-        setGlobalFilter,
+        globalFilter: destinationGlobalFilter,
+        setGlobalFilter: setDestinationGlobalFilter,
         getFilteredColumns,
         removeTable,
         removeColumn
@@ -109,7 +112,7 @@ const JsonMapperVisualizer: React.FC = () => {
                     isVisible={!!exportMessage}
                 />
 
-                {/* Source Data Panel */}
+                {/* Source Data Panel with Filter */}
                 <SourceDataPanel
                     jsonData={jsonData}
                     expandedNodes={expandedNodes}
@@ -121,6 +124,9 @@ const JsonMapperVisualizer: React.FC = () => {
                     getSheetMappingCount={getSheetMappingCount}
                     isColumnMapped={isColumnMapped}
                     getColumnMappingCount={getColumnMappingCount}
+                    // Add filter props
+                    globalFilter={sourceGlobalFilter}
+                    onGlobalFilterChange={setSourceGlobalFilter}
                 />
 
                 {/* Destination Tables Panel */}
@@ -147,8 +153,8 @@ const JsonMapperVisualizer: React.FC = () => {
                     <DestinationTablesPanel
                         destinationTables={destinationTables}
                         mappings={mappings}
-                        globalFilter={globalFilter}
-                        onGlobalFilterChange={setGlobalFilter}
+                        globalFilter={destinationGlobalFilter}
+                        onGlobalFilterChange={setDestinationGlobalFilter}
                         getFilteredColumns={getFilteredColumns}
                         onDragOver={handleDragOver}
                         onDrop={handleDrop}

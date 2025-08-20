@@ -1,6 +1,7 @@
-// components/SourceDataPanel.tsx - Source data structure rendering
-import { ChevronRight, ChevronDown, Database, File, Sheet, Columns, Check } from 'lucide-react';
+// components/SourceDataPanel.tsx - Fixed column filtering issue
+import { ChevronRight, ChevronDown, Database, File, Sheet, Columns, Check, Search, X } from 'lucide-react';
 import type {FileData, SourceColumn} from '../types';
+import React from "react";
 
 interface SourceDataPanelProps {
     jsonData: FileData[];
@@ -13,6 +14,9 @@ interface SourceDataPanelProps {
     getSheetMappingCount: (fileName: string, sheetName: string) => number;
     isColumnMapped: (fileName: string, sheetName: string, columnName: string) => boolean;
     getColumnMappingCount: (fileName: string, sheetName: string, columnName: string) => number;
+    // New filter props
+    globalFilter: string;
+    onGlobalFilterChange: (value: string) => void;
 }
 
 export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
@@ -25,21 +29,112 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                                                                     getFileMappingCount,
                                                                     getSheetMappingCount,
                                                                     isColumnMapped,
-                                                                    getColumnMappingCount
+                                                                    getColumnMappingCount,
+                                                                    globalFilter,
+                                                                    onGlobalFilterChange
                                                                 }) => {
+    // Enhanced filter function for columns that preserves original indices
+    const getFilteredColumnsWithIndices = (columns: string[]): Array<{column: string, originalIndex: number}> => {
+        if (!globalFilter.trim()) {
+            return columns.map((column, index) => ({column, originalIndex: index}));
+        }
+        return columns
+            .map((column, index) => ({column, originalIndex: index}))
+            .filter(item => item.column.toLowerCase().includes(globalFilter.toLowerCase()));
+    };
+
+    // Filter function for sheets (shows sheet if it has matching columns or if sheet name matches OR if parent file matches)
+    const shouldShowSheet = (sheet: { sheet_name: string; columns?: string[] }, _fileName: string, fileMatches: boolean): boolean => {
+        if (!globalFilter.trim()) {
+            return true;
+        }
+
+        // If parent file matches, show all sheets
+        if (fileMatches) {
+            return true;
+        }
+
+        const sheetNameMatches = sheet.sheet_name.toLowerCase().includes(globalFilter.toLowerCase());
+        const hasMatchingColumns = sheet.columns && getFilteredColumnsWithIndices(sheet.columns).length > 0;
+
+        // @ts-ignore
+        return sheetNameMatches || hasMatchingColumns;
+    };
+
+    // Filter function for files (shows file if filename matches or has matching sheets)
+    const shouldShowFile = (fileData: FileData): boolean => {
+        if (!globalFilter.trim()) {
+            return true;
+        }
+
+        const fileName = fileData.file.split('\\').pop() || fileData.file;
+        const fileNameMatches = fileName.toLowerCase().includes(globalFilter.toLowerCase());
+
+        // If filename matches, show the file
+        if (fileNameMatches) {
+            return true;
+        }
+
+        // Otherwise check if any sheet has matching content
+        const hasMatchingSheets = fileData.sheets.some(sheet => {
+            const sheetNameMatches = sheet.sheet_name.toLowerCase().includes(globalFilter.toLowerCase());
+            const hasMatchingColumns = sheet.columns && getFilteredColumnsWithIndices(sheet.columns).length > 0;
+            return sheetNameMatches || hasMatchingColumns;
+        });
+
+        return hasMatchingSheets;
+    };
+
+    // Filter the data
+    const filteredJsonData = jsonData.filter(fileData => shouldShowFile(fileData));
+
     return (
         <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
+            {/* Header */}
             <div className="bg-gradient-to-r from-cyan-500 via-blue-600 to-blue-700 text-white p-4 flex items-center">
                 <Database className="w-5 h-5 mr-2" />
                 <h2 className="text-lg font-semibold">Source Data Structure</h2>
             </div>
+
+            {/* Search Bar */}
+            <div className="bg-white p-4 border-b border-gray-200">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Search files, sheets, and columns..."
+                        value={globalFilter}
+                        onChange={(e) => onGlobalFilterChange(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                    {globalFilter && (
+                        <button
+                            onClick={() => onGlobalFilterChange('')}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        >
+                            <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                        </button>
+                    )}
+                </div>
+                {globalFilter && (
+                    <div className="mt-2 text-sm text-gray-600">
+                        Found results in {filteredJsonData.length} file{filteredJsonData.length !== 1 ? 's' : ''}
+                    </div>
+                )}
+            </div>
+
+            {/* Content */}
             <div className="flex-1 overflow-auto p-4">
                 <div className="space-y-4">
-                    {jsonData.map((fileData, fileIndex) => {
+                    {filteredJsonData.map((fileData, fileIndex) => {
                         const fileName = fileData.file.split('\\').pop() || fileData.file;
                         const fileKey = `file-${fileIndex}`;
                         const isMappedFile = isFileMapped(fileName);
                         const fileMappingCount = getFileMappingCount(fileName);
+
+                        // Filter sheets for this file
+                        const fileNameMatches = fileName.toLowerCase().includes(globalFilter.toLowerCase());
+                        const filteredSheets = fileData.sheets.filter(sheet => shouldShowSheet(sheet, fileName, fileNameMatches));
 
                         return (
                             <div key={fileIndex} className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -65,7 +160,12 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                                                 <div className="flex items-center mt-2 space-x-4">
                                                     <div className="flex items-center">
                                                         <Sheet className="w-4 h-4 text-gray-400 mr-1" />
-                                                        <span className="text-sm text-gray-600">{fileData.sheets.length} sheets</span>
+                                                        <span className="text-sm text-gray-600">
+                                                            {globalFilter ? `${filteredSheets.length}/${fileData.sheets.length}` : fileData.sheets.length} sheets
+                                                            {globalFilter && filteredSheets.length !== fileData.sheets.length && (
+                                                                <span className="text-blue-600 font-medium"> (filtered)</span>
+                                                            )}
+                                                        </span>
                                                     </div>
                                                     {isMappedFile && (
                                                         <div className="flex items-center">
@@ -90,11 +190,20 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                                 {expandedNodes.has(fileKey) && (
                                     <div className="p-4">
                                         <div className="space-y-3">
-                                            {fileData.sheets.map((sheet, sheetIndex) => {
+                                            {filteredSheets.map((sheet, sheetIndex) => {
                                                 const sheetKey = `${fileKey}-sheet-${sheetIndex}`;
                                                 const hasColumns = sheet.columns && sheet.columns.length > 0;
                                                 const isMappedSheet = isSheetMapped(fileName, sheet.sheet_name);
                                                 const sheetMappingCount = getSheetMappingCount(fileName, sheet.sheet_name);
+
+                                                // Filter columns for this sheet with original indices
+                                                // Show all columns if: file matches, sheet name matches, or filter columns normally
+                                                const sheetNameMatches = sheet.sheet_name.toLowerCase().includes(globalFilter.toLowerCase());
+                                                const filteredColumnsWithIndices = hasColumns ?
+                                                    (fileNameMatches || sheetNameMatches ?
+                                                            sheet.columns.map((column, index) => ({column, originalIndex: index})) :
+                                                            getFilteredColumnsWithIndices(sheet.columns)
+                                                    ) : [];
 
                                                 return (
                                                     <div key={sheetIndex} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -136,7 +245,13 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                                                                     <div className="flex items-center">
                                                                         <Columns className="w-4 h-4 text-gray-500 mr-1" />
                                                                         <span className="text-sm text-gray-600">
-                                                                            {sheet.columns?.length || 0} columns
+                                                                            {globalFilter && hasColumns ?
+                                                                                `${filteredColumnsWithIndices.length}/${sheet.columns?.length || 0}` :
+                                                                                (sheet.columns?.length || 0)
+                                                                            } columns
+                                                                            {globalFilter && hasColumns && filteredColumnsWithIndices.length !== sheet.columns.length && (
+                                                                                <span className="text-blue-600 font-medium"> (filtered)</span>
+                                                                            )}
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -150,67 +265,83 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                                                                     <div className="flex items-center mb-2">
                                                                         <Columns className="w-4 h-4 text-green-600 mr-2" />
                                                                         <span className="text-sm font-medium text-gray-700">Available Columns:</span>
+                                                                        {globalFilter && filteredColumnsWithIndices.length !== sheet.columns.length && (
+                                                                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                                                                {filteredColumnsWithIndices.length} of {sheet.columns.length} shown
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                                    {sheet.columns.map((column, columnIndex) => {
-                                                                        const isMapped = isColumnMapped(fileName, sheet.sheet_name, column);
-                                                                        const mappingCount = getColumnMappingCount(fileName, sheet.sheet_name, column);
 
-                                                                        return (
-                                                                            <div
-                                                                                key={columnIndex}
-                                                                                className={`border rounded-lg px-3 py-2 cursor-grab transition-all duration-200 transform hover:scale-105 ${
-                                                                                    isMapped
-                                                                                        ? 'bg-red-50 border-red-300 hover:bg-red-100 hover:border-red-400'
-                                                                                        : 'bg-green-50 border-green-200 hover:bg-green-100 hover:border-green-300'
-                                                                                }`}
-                                                                                draggable
-                                                                                onDragStart={(e) => onDragStart(e, {
-                                                                                    path: `${fileName} > ${sheet.sheet_name} > ${column}`,
-                                                                                    value: column,
-                                                                                    type: 'column',
-                                                                                    file: fileName,
-                                                                                    sheet: sheet.sheet_name
-                                                                                })}
-                                                                            >
-                                                                                <div className="flex items-center justify-between">
-                                                                                    <div className="flex items-center">
-                                                                                        <div className={`w-2 h-2 rounded-full mr-2 ${
-                                                                                            isMapped ? 'bg-red-500' : 'bg-green-500'
-                                                                                        }`}>
-                                                                                        </div>
-                                                                                        <div className="flex flex-col">
-                                                                                            <span className={`font-medium text-sm ${
-                                                                                                isMapped ? 'text-red-800' : 'text-green-800'
-                                                                                            }`}>{column}</span>
-                                                                                            <span className='text-xs text-gray-500'>{sheet.sample_data[columnIndex]}</span>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    {isMapped && (
+                                                                {filteredColumnsWithIndices.length > 0 ? (
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                                        {filteredColumnsWithIndices.map(({column, originalIndex}, displayIndex) => {
+                                                                            const isMapped = isColumnMapped(fileName, sheet.sheet_name, column);
+                                                                            const mappingCount = getColumnMappingCount(fileName, sheet.sheet_name, column);
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={displayIndex}
+                                                                                    className={`border rounded-lg px-3 py-2 cursor-grab transition-all duration-200 transform hover:scale-105 ${
+                                                                                        isMapped
+                                                                                            ? 'bg-red-50 border-red-300 hover:bg-red-100 hover:border-red-400'
+                                                                                            : 'bg-green-50 border-green-200 hover:bg-green-100 hover:border-green-300'
+                                                                                    }`}
+                                                                                    draggable
+                                                                                    onDragStart={(e) => onDragStart(e, {
+                                                                                        path: `${fileName} > ${sheet.sheet_name} > ${column}`,
+                                                                                        value: column,
+                                                                                        type: 'column',
+                                                                                        file: fileName,
+                                                                                        sheet: sheet.sheet_name
+                                                                                    })}
+                                                                                >
+                                                                                    <div className="flex items-center justify-between">
                                                                                         <div className="flex items-center">
-                                                                                            <Check className="w-4 h-4 text-red-600" />
-                                                                                            {mappingCount > 1 && (
-                                                                                                <span className="ml-1 text-xs bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center">
-                                                                                                    {mappingCount}
+                                                                                            <div className={`w-2 h-2 rounded-full mr-2 ${
+                                                                                                isMapped ? 'bg-red-500' : 'bg-green-500'
+                                                                                            }`}>
+                                                                                            </div>
+                                                                                            <div className="flex flex-col">
+                                                                                                <span className={`font-medium text-sm ${
+                                                                                                    isMapped ? 'text-red-800' : 'text-green-800'
+                                                                                                }`}>{column}</span>
+                                                                                                <span className='text-xs text-gray-500'>
+                                                                                                    {sheet.sample_data && sheet.sample_data[originalIndex]}
                                                                                                 </span>
-                                                                                            )}
+                                                                                            </div>
                                                                                         </div>
-                                                                                    )}
+                                                                                        {isMapped && (
+                                                                                            <div className="flex items-center">
+                                                                                                <Check className="w-4 h-4 text-red-600" />
+                                                                                                {mappingCount > 1 && (
+                                                                                                    <span className="ml-1 text-xs bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center">
+                                                                                                        {mappingCount}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className={`text-xs mt-1 ${
+                                                                                        isMapped ? 'text-red-600' : 'text-green-600'
+                                                                                    }`}>
+                                                                                        {isMapped && (
+                                                                                            <span className="ml-2 font-medium">
+                                                                                                ✓ Mapped
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
-                                                                                <div className={`text-xs mt-1 ${
-                                                                                    isMapped ? 'text-red-600' : 'text-green-600'
-                                                                                }`}>
-                                                                                    {isMapped && (
-                                                                                        <span className="ml-2 font-medium">
-                                                                                            ✓ Mapped
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
+                                                                        <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                                                        <div className="text-sm">No columns match your search</div>
+                                                                        <div className="text-xs text-gray-400">Try adjusting your search term</div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
 
@@ -231,6 +362,34 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                             </div>
                         );
                     })}
+
+                    {/* Empty state when no results found */}
+                    {globalFilter && filteredJsonData.length === 0 && (
+                        <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center p-12">
+                            <div className="text-center">
+                                <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-gray-500 font-medium mb-2">No results found</h3>
+                                <p className="text-gray-400 text-sm">No files, sheets, or columns match "{globalFilter}"</p>
+                                <button
+                                    onClick={() => onGlobalFilterChange('')}
+                                    className="mt-3 text-blue-600 hover:text-blue-800 text-sm underline"
+                                >
+                                    Clear search
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Empty state when no data */}
+                    {!globalFilter && filteredJsonData.length === 0 && (
+                        <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center p-12">
+                            <div className="text-center">
+                                <Database className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-gray-500 font-medium mb-2">No source data</h3>
+                                <p className="text-gray-400 text-sm">Upload your files to get started</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
