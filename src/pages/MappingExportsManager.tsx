@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Eye, Trash2, Download, Plus, Calendar, Database, RefreshCw, AlertCircle, CheckCircle, Clock, Loader } from 'lucide-react';
-import Navbar from "./Navbar.tsx";
-import BeautifulDetailsModal from "./BeautifulDetailsModal.tsx";
+import Navbar from "../components/Navbar.tsx";
+import BeautifulDetailsModal from "../components/BeautifulDetailsModal.tsx";
 
 // Import all API functions từ service
 import {
@@ -9,7 +9,7 @@ import {
     deleteMappingExport,
     searchMappingExports,
     getMappingStats,
-} from '../services/mappingExportService2';
+} from '../services/mappingExportService2.tsx';
 import {useNavigate} from "react-router";
 
 // Type definitions

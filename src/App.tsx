@@ -1,7 +1,7 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route } from "react-router";
-import JsonMapperVisualizer from "./components/JsonMapperVisualizer";
-import MappingExportsManager from "./components/MappingExportsManager.tsx";
+import JsonMapperVisualizer from "./pages/JsonMapperVisualizer.tsx";
+import MappingExportsManager from "./pages/MappingExportsManager.tsx";
 import { Toaster } from 'sonner';
 
 function App() {
