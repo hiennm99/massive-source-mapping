@@ -1,4 +1,6 @@
 // types.ts - All type definitions
+import React from "react";
+
 export interface SourceColumn {
     path: string;
     value: string;
@@ -32,6 +34,29 @@ export interface ColumnMapping {
         table: string;
         column: string;
     };
+}
+
+export interface ColumnGroup {
+    name: string;
+    prefix: string;
+    columns: string[];
+    icon: React.ReactNode;
+    color: string;
+    instanceNumber?: number;
+}
+
+export interface TabGroup {
+    key: string;
+    name: string;
+    icon: React.ReactNode;
+    color: string;
+    groups: ColumnGroup[];
+}
+
+export interface TableConfig {
+    maxGuarantors: number;
+    maxJointBorrowers: number;
+    maxAssets: number;
 }
 
 export interface MappingData {

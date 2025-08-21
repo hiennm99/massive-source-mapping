@@ -1,165 +1,309 @@
-// File: src/services/mappingExportService.ts
+// File: src/services/mappingExportService.ts - UPDATED FOR BACKEND COMPATIBILITY
 import { toast } from 'sonner';
+
+// Type definitions matching the exact backend structure
+interface MappingSource {
+    file: string;
+    sheet: string;
+    column: string;
+}
 
 interface MappingExportData {
     name: string;
-    mappings: [];
-    destination_tables: [];
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
 }
 
-interface AirtableRecord {
+interface MappingExportResponse {
     id: string;
-    fields: {
-        name: string;
-        mappings: string; // JSON string
-        destination_tables: string; // JSON string
-        created_at: string;
+    name: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
     };
-    createdTime: string;
+    created_at: string;
+    updated_at: string;
 }
 
-interface AirtableResponse {
-    records: AirtableRecord[];
-    offset?: string;
+interface ApiError {
+    detail: string | unknown[];
 }
 
-interface AirtableError {
-    error: {
-        type: string;
-        message: string;
-    };
-}
-
-// Airtable config - Nên move vào environment variables
-const BASE_ID = 'appn0kd4Lswsu3aIW';
-const TABLE_NAME = 'mapping_exports';
-const API_KEY = 'patyF7T5hiDjwyKZN.fc1a1ff04a6e5cee3711f74fcdd0390ae454a6f3899e7802d55a2138dd53a40a';
-const API_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`;
+// Backend config
+const BACKEND_URL = 'https://massive-source-mapping-backend-production.up.railway.app';
+const API_ENDPOINTS = {
+    mappings: `${BACKEND_URL}/api/mapping-exports`,
+    health: `${BACKEND_URL}/`,
+    stats: `${BACKEND_URL}/api/mapping-exports/stats`,
+    search: `${BACKEND_URL}/api/mapping-exports/search`,
+    batch: `${BACKEND_URL}/api/mapping-exports/batch`
+};
 
 const headers = {
-    'Authorization': `Bearer ${API_KEY}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
 };
 
-// Validate required configs
-const validateConfig = (): void => {
-    if (!BASE_ID || !TABLE_NAME || !API_KEY) {
-        throw new Error('Missing Airtable configuration. Please check your environment variables.');
+// Validate MappingSource structure to match backend expectations
+const validateMappingSource = (source: unknown): MappingSource => {
+    if (!source || typeof source !== 'object') {
+        throw new Error('Invalid mapping source structure - must be an object');
     }
+
+    // Check for required fields and ensure they have meaningful values
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    const file = typeof source.file === 'string' ? source.file.trim() : '';
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    const sheet = typeof source.sheet === 'string' ? source.sheet.trim() : '';
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    const column = typeof source.column === 'string' ? source.column.trim() : '';
+
+    // Validate required fields are not empty
+    if (!file || !sheet || !column) {
+        throw new Error(`Invalid mapping source - missing required fields: file="${file}", sheet="${sheet}", column="${column}"`);
+    }
+
+    // Return plain object - no class instances
+    return {
+        file,
+        sheet,
+        column
+    };
 };
 
-export const saveMappingExport = async (data: MappingExportData): Promise<unknown> => {
-    try {
-        validateConfig();
+// Validate array mappings with strict backend format compliance
+const validateArrayMappings = (data: unknown): Array<{[key: string]: MappingSource}> => {
+    if (!data || !Array.isArray(data)) {
+        console.warn('Array mappings data is not an array, returning empty array');
+        return [];
+    }
 
-        // Validate input data
-        if (!data.name || !data.name.trim()) {
-            throw new Error('Mapping name is required');
-        }
+    const validMappings: Array<{[key: string]: MappingSource}> = [];
 
-        const payload = {
-            fields: {
-                name: data.name.trim(),
-                mappings: JSON.stringify(data.mappings),
-                destination_tables: JSON.stringify(data.destination_tables),
-                created_at: new Date().toISOString()
+    data.forEach((item, index) => {
+        try {
+            if (!item || typeof item !== 'object') {
+                console.warn(`Invalid array mapping item at index ${index} - not an object`);
+                return;
             }
-        };
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload)
+            const validItem: {[key: string]: MappingSource} = {};
+            let hasValidMapping = false;
+
+            for (const [key, value] of Object.entries(item)) {
+                try {
+                    const validSource = validateMappingSource(value);
+                    validItem[key] = validSource;
+                    hasValidMapping = true;
+                } catch (error) {
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-expect-error
+                    console.warn(`Invalid mapping source at index ${index}, key ${key}:`, error.message);
+                }
+            }
+
+            if (hasValidMapping && Object.keys(validItem).length > 0) {
+                validMappings.push(validItem);
+            } else {
+                console.warn(`Skipping array mapping item at index ${index} - no valid mappings found`);
+            }
+        } catch (error) {
+            console.warn(`Error processing array mapping item at index ${index}:`, error);
+        }
+    });
+
+    return validMappings;
+};
+
+// Validate mapping data with strict backend compatibility
+const validateMappingData = (data: MappingExportData): MappingExportData => {
+    if (!data) {
+        throw new Error('Data is required');
+    }
+
+    if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
+        throw new Error('Name is required and must be a non-empty string');
+    }
+
+    if (!data.mappings || typeof data.mappings !== 'object') {
+        throw new Error('Mappings are required and must be an object');
+    }
+
+    // Validate mappings structure with backend expectations
+    const validatedMappings: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>} = {};
+    let hasValidMappings = false;
+
+    for (const [key, value] of Object.entries(data.mappings)) {
+        try {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                // These should be arrays
+                const validatedArray = validateArrayMappings(value);
+                if (validatedArray.length > 0) {
+                    validatedMappings[key] = validatedArray;
+                    hasValidMappings = true;
+                } else {
+                    console.warn(`Skipping empty ${key} array`);
+                }
+            } else {
+                // Regular mappings should be MappingSource objects
+                try {
+                    const validatedSource = validateMappingSource(value);
+                    validatedMappings[key] = validatedSource;
+                    hasValidMappings = true;
+                } catch (error) {
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-expect-error
+                    console.warn(`Skipping invalid mapping for key "${key}":`, error.message);
+                }
+            }
+        } catch (error) {
+            console.warn(`Error processing mapping for key "${key}":`, error);
+        }
+    }
+
+    if (!hasValidMappings) {
+        throw new Error('No valid mappings found - all mappings have missing or empty required fields (file, sheet, column)');
+    }
+
+    return {
+        name: data.name.trim(),
+        mappings: validatedMappings
+    };
+};
+
+// Validate backend connection
+export const testBackendConnection = async (): Promise<boolean> => {
+    try {
+        const response = await fetch(API_ENDPOINTS.health, {
+            method: 'GET',
+            headers: headers
         });
 
         if (!response.ok) {
+            return false;
+        }
+
+        const data = await response.json();
+        return data.message && data.message.includes('running');
+    } catch (error) {
+        console.error('Backend connection test failed:', error);
+        return false;
+    }
+};
+
+// Save mapping export with backend compatibility
+export const saveMappingExport = async (data: MappingExportData): Promise<MappingExportResponse> => {
+    try {
+        // Validate and sanitize input data
+        const validatedData = validateMappingData(data);
+
+        console.log("Validated mapping export", validatedData);
+
+        console.log('Sending validated payload to backend:', JSON.stringify(validatedData, null, 2));
+
+        const response = await fetch(API_ENDPOINTS.mappings, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(validatedData)
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
             let errorMessage = 'Unknown error';
+
             try {
-                const error: AirtableError = await response.json();
-                errorMessage = error.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+                const errorText = await response.text();
+                console.log('Error response text:', errorText);
+
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    console.log('Parsed error JSON:', errorJson);
+
+                    if (errorJson.detail) {
+                        if (typeof errorJson.detail === 'string') {
+                            errorMessage = errorJson.detail;
+                        } else if (Array.isArray(errorJson.detail)) {
+                            // FastAPI validation errors format
+                            const errorDetails = errorJson.detail.map((err: any) =>
+                                `${err.loc?.join('.')} - ${err.msg}`
+                            ).join('; ');
+                            errorMessage = `Validation error: ${errorDetails}`;
+                        } else {
+                            errorMessage = JSON.stringify(errorJson.detail);
+                        }
+                    } else {
+                        errorMessage = errorText || `HTTP ${response.status}: ${response.statusText}`;
+                    }
+                } 
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
+                catch (parseError) {
+                    errorMessage = errorText || `HTTP ${response.status}: ${response.statusText}`;
+                }
+            } catch (textError) {
+                console.error('Could not read response text:', textError);
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
             }
+
             throw new Error(`Failed to save mapping: ${errorMessage}`);
         }
 
-        const result = await response.json();
-        toast.success('Saved mapping successfully !!!');
+        const result: MappingExportResponse = await response.json();
+        console.log('Success response:', result);
+        toast.success('Saved mapping successfully!');
         return result;
     } catch (error) {
-        console.error('Saved mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lưu mapping. Vui lòng thử lại.';
+        console.error('Save mapping export error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving mapping. Please try again.';
         toast.error(errorMessage);
         throw error;
     }
 };
 
-export const getMappingExports = async (): Promise<unknown[]> => {
+// Get mapping exports
+export const getMappingExports = async (skip: number = 0, limit: number = 100): Promise<MappingExportResponse[]> => {
     try {
-        validateConfig();
-
-        // Sort by created_at descending
-        const url = `${API_URL}?sort%5B0%5D%5Bfield%5D=created_at&sort%5B0%5D%5Bdirection%5D=desc`;
-
+        const url = `${API_ENDPOINTS.mappings}?skip=${skip}&limit=${limit}`;
         const response = await fetch(url, {
+            method: 'GET',
             headers: headers
         });
 
         if (!response.ok) {
             let errorMessage = 'Unknown error';
             try {
-                const error: AirtableError = await response.json();
-                errorMessage = error.error?.message || `HTTP ${response.status}: ${response.statusText}`;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
+                const error: ApiError = await response.json();
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            catch (parseError) {
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
             }
             throw new Error(`Failed to fetch mappings: ${errorMessage}`);
         }
 
-        const data: AirtableResponse = await response.json();
-
-        // Transform Airtable records to our format with error handling
-        return data.records.map((record: AirtableRecord) => {
-            try {
-                return {
-                    id: record.id,
-                    name: record.fields.name || 'Unnamed',
-                    mappings: JSON.parse(record.fields.mappings || '{}'),
-                    destination_tables: JSON.parse(record.fields.destination_tables || '{}'),
-                    created_at: record.fields.created_at,
-                    createdTime: record.createdTime
-                };
-            } catch (parseError) {
-                console.warn(`Failed to parse record ${record.id}:`, parseError);
-                return {
-                    id: record.id,
-                    name: record.fields.name || 'Unnamed',
-                    mappings: {},
-                    destination_tables: {},
-                    created_at: record.fields.created_at,
-                    createdTime: record.createdTime
-                };
-            }
-        });
+        const data: MappingExportResponse[] = await response.json();
+        return data;
     } catch (error) {
         console.error('Get mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi tải danh sách mapping. Vui lòng thử lại.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mappings. Please try again.';
         toast.error(errorMessage);
         throw error;
     }
 };
 
+// Delete mapping export
 export const deleteMappingExport = async (id: string): Promise<void> => {
     try {
-        validateConfig();
-
         if (!id || !id.trim()) {
             throw new Error('Record ID is required');
         }
 
-        const response = await fetch(`${API_URL}/${id}`, {
+        const response = await fetch(`${API_ENDPOINTS.mappings}/${id}`, {
             method: 'DELETE',
             headers: headers
         });
@@ -167,8 +311,8 @@ export const deleteMappingExport = async (id: string): Promise<void> => {
         if (!response.ok) {
             let errorMessage = 'Unknown error';
             try {
-                const error: AirtableError = await response.json();
-                errorMessage = error.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+                const error: ApiError = await response.json();
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (parseError) {
                 errorMessage = `HTTP ${response.status}: ${response.statusText}`;
@@ -176,27 +320,302 @@ export const deleteMappingExport = async (id: string): Promise<void> => {
             throw new Error(`Failed to delete mapping: ${errorMessage}`);
         }
 
-        toast.success('Đã xóa mapping thành công!');
+        toast.success('Deleted mapping successfully!');
     } catch (error) {
         console.error('Delete mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa mapping. Vui lòng thử lại.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mapping. Please try again.';
         toast.error(errorMessage);
         throw error;
     }
 };
 
-// Utility function để test connection
-export const testAirtableConnection = async (): Promise<boolean> => {
+// Batch delete mapping exports
+export const deleteMappingExports = async (ids: string[]): Promise<void> => {
     try {
-        validateConfig();
+        if (!ids || ids.length === 0) {
+            throw new Error('At least one record ID is required');
+        }
 
-        const response = await fetch(`${API_URL}?maxRecords=1`, {
+        const response = await fetch(API_ENDPOINTS.batch, {
+            method: 'DELETE',
+            headers: headers,
+            body: JSON.stringify(ids)
+        });
+
+        if (!response.ok) {
+            let errorMessage = 'Unknown error';
+            try {
+                const error: ApiError = await response.json();
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (parseError) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(`Failed to delete mappings: ${errorMessage}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+            toast.success(`Deleted ${result.deleted_count} mappings successfully!`);
+        } else {
+            toast.warning(`Deleted ${result.deleted_count} mappings, ${result.error_count} errors occurred.`);
+        }
+    } catch (error) {
+        console.error('Batch delete mapping exports error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mappings. Please try again.';
+        toast.error(errorMessage);
+        throw error;
+    }
+};
+
+// Get mapping export by ID
+export const getMappingExportById = async (id: string): Promise<MappingExportResponse> => {
+    try {
+        if (!id || !id.trim()) {
+            throw new Error('Record ID is required');
+        }
+
+        const response = await fetch(`${API_ENDPOINTS.mappings}/${id}`, {
+            method: 'GET',
             headers: headers
         });
 
-        return response.ok;
+        if (!response.ok) {
+            let errorMessage = 'Unknown error';
+            try {
+                const error: ApiError = await response.json();
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (parseError) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(`Failed to fetch mapping: ${errorMessage}`);
+        }
+
+        const data: MappingExportResponse = await response.json();
+        return data;
     } catch (error) {
-        console.error('Airtable connection test failed:', error);
-        return false;
+        console.error('Get mapping export by ID error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mapping. Please try again.';
+        toast.error(errorMessage);
+        throw error;
     }
+};
+
+// Update mapping export with backend compatibility
+export const updateMappingExport = async (
+    id: string,
+    data: {
+        name?: string;
+        mappings?: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>};
+    }
+): Promise<MappingExportResponse> => {
+    try {
+        if (!id || !id.trim()) {
+            throw new Error('Record ID is required');
+        }
+
+        // Only include non-empty fields in the update
+        const payload: any = {};
+
+        if (data.name && data.name.trim()) {
+            payload.name = data.name.trim();
+        }
+
+        if (data.mappings !== undefined) {
+            // Validate mappings structure
+            const validatedMappings: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>} = {};
+            let hasValidMappings = false;
+
+            for (const [key, value] of Object.entries(data.mappings)) {
+                try {
+                    if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                        const validatedArray = validateArrayMappings(value);
+                        if (validatedArray.length > 0) {
+                            validatedMappings[key] = validatedArray;
+                            hasValidMappings = true;
+                        }
+                    } else {
+                        const validatedSource = validateMappingSource(value);
+                        validatedMappings[key] = validatedSource;
+                        hasValidMappings = true;
+                    }
+                } catch (error) {
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-expect-error
+                    console.warn(`Skipping invalid mapping for key "${key}":`, error.message);
+                }
+            }
+
+            if (hasValidMappings) {
+                payload.mappings = validatedMappings;
+            } else {
+                throw new Error('No valid mappings found for update');
+            }
+        }
+
+        if (Object.keys(payload).length === 0) {
+            throw new Error('No valid data to update');
+        }
+
+        const response = await fetch(`${API_ENDPOINTS.mappings}/${id}`, {
+            method: 'PUT',
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errorMessage = 'Unknown error';
+            try {
+                const error: ApiError = await response.json();
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (parseError) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(`Failed to update mapping: ${errorMessage}`);
+        }
+
+        const result: MappingExportResponse = await response.json();
+        toast.success('Updated mapping successfully!');
+        return result;
+    } catch (error) {
+        console.error('Update mapping export error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while updating mapping. Please try again.';
+        toast.error(errorMessage);
+        throw error;
+    }
+};
+
+// Search mapping exports
+export const searchMappingExports = async (
+    query: string,
+    skip: number = 0,
+    limit: number = 100
+): Promise<MappingExportResponse[]> => {
+    try {
+        const url = `${API_ENDPOINTS.search}?query=${encodeURIComponent(query)}&skip=${skip}&limit=${limit}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (!response.ok) {
+            let errorMessage = 'Unknown error';
+            try {
+                const error: ApiError = await response.json();
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (parseError) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(`Failed to search mappings: ${errorMessage}`);
+        }
+
+        const data: MappingExportResponse[] = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Search mapping exports error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while searching mappings. Please try again.';
+        toast.error(errorMessage);
+        throw error;
+    }
+};
+
+// Get mapping statistics
+export const getMappingStats = async (): Promise<{
+    total_mappings: number;
+    timestamp: string;
+}> => {
+    try {
+        const response = await fetch(API_ENDPOINTS.stats, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Get mapping stats failed:', error);
+        return {
+            total_mappings: 0,
+            timestamp: new Date().toISOString()
+        };
+    }
+};
+
+// Health check utility
+export const checkBackendHealth = async (): Promise<{
+    status: 'healthy' | 'unhealthy';
+    message?: string;
+    timestamp: string;
+}> => {
+    try {
+        const response = await fetch(API_ENDPOINTS.health, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return {
+            status: 'healthy',
+            message: data.message,
+            timestamp: data.timestamp
+        };
+    } catch (error) {
+        console.error('Backend health check failed:', error);
+        return {
+            status: 'unhealthy',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString()
+        };
+    }
+};
+
+// Utility function to format dates
+export const formatDate = (dateString: string): string => {
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    } catch (error) {
+        console.error('Date formatting error:', error);
+        return dateString;
+    }
+};
+
+// Export type definitions for use in other files
+export type {
+    MappingSource,
+    MappingExportData,
+    MappingExportResponse
+};
+
+// Export all functions as default object for backward compatibility
+export default {
+    saveMappingExport,
+    getMappingExports,
+    deleteMappingExport,
+    deleteMappingExports,
+    getMappingExportById,
+    updateMappingExport,
+    searchMappingExports,
+    getMappingStats,
+    testBackendConnection,
+    checkBackendHealth,
+    formatDate
 };

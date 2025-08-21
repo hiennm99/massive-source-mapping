@@ -8,36 +8,32 @@ import {
     getMappingExports,
     deleteMappingExport,
     searchMappingExports,
-    getMappingStats,
-} from '../services/mappingExportService2.tsx';
+    getMappingStats
+} from '../services/mappingExportService.tsx';
 import {useNavigate} from "react-router";
 
-// Type definitions
+interface MappingSource {
+    file: string;
+    sheet: string;
+    column: string;
+}
+
+interface MappingExportResponse {
+    id: string;
+    success: boolean;
+    data: MappingExport[];
+    message?: string;
+}
+
+// Type definitions matching backend format
 interface MappingExport {
     id: string;
     name: string;
     created_at: string;
     updated_at: string;
-    mappings?: Mapping[];
-    destination_tables?: DestinationTable[];
-}
-
-interface Mapping {
-    id: string;
-    source: {
-        path: string;
-        value: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
     };
-    destination: {
-        table: string;
-        column: string;
-    };
-}
-
-interface DestinationTable {
-    id: string;
-    name: string;
-    columns?: string[];
 }
 
 interface Stats {
@@ -62,6 +58,92 @@ const MappingExportsManager = () => {
         timestamp: new Date().toISOString()
     });
 
+    // Helper function to convert backend response to internal format
+    const convertBackendResponse = (data: MappingExportResponse[]): MappingExport[] => {
+        return data.map(item => ({
+            id: item.id,
+            name: item.name,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            mappings: item.mappings
+        }));
+    };
+
+    // Helper function to count total mappings
+    const countMappingsInExport = (mappings: MappingExport['mappings']): number => {
+        let count = 0;
+
+        Object.entries(mappings).forEach(([key, value]) => {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                // These are arrays
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        count += Object.keys(item).length;
+                    });
+                }
+            } else {
+                // Regular mapping
+                count += 1;
+            }
+        });
+
+        return count;
+    };
+
+    // Helper function to get unique tables from mappings
+    const getUniqueTablesFromExport = (mappings: MappingExport['mappings']): Set<string> => {
+        const tables = new Set<string>();
+
+        Object.entries(mappings).forEach(([key, value]) => {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                // These are arrays
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        Object.values(item).forEach(source => {
+                            if (source && typeof source === 'object' && 'sheet' in source) {
+                                tables.add(source.sheet);
+                            }
+                        });
+                    });
+                }
+            } else {
+                // Regular mapping
+                if (value && typeof value === 'object' && 'sheet' in value) {
+                    tables.add(value.sheet);
+                }
+            }
+        });
+
+        return tables;
+    };
+
+    // Helper function to get files from export
+    const getFilesFromExport = (mappings: MappingExport['mappings']): Set<string> => {
+        const files = new Set<string>();
+
+        Object.entries(mappings).forEach(([key, value]) => {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                // These are arrays
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        Object.values(item).forEach(source => {
+                            if (source && typeof source === 'object' && 'file' in source) {
+                                files.add(source.file);
+                            }
+                        });
+                    });
+                }
+            } else {
+                // Regular mapping
+                if (value && typeof value === 'object' && 'file' in value) {
+                    files.add(value.file);
+                }
+            }
+        });
+
+        return files;
+    };
+
     // Initial data loading
     useEffect(() => {
         loadInitialData();
@@ -78,7 +160,7 @@ const MappingExportsManager = () => {
                 getMappingStats()
             ]);
 
-            setExports(exportsData as unknown as MappingExport[]);
+            setExports(convertBackendResponse(exportsData));
             setStats(statsData as Stats);
         } catch (error) {
             console.error('Failed to load initial data:', error);
@@ -98,16 +180,13 @@ const MappingExportsManager = () => {
 
             try {
                 const searchResults = await searchMappingExports(searchTerm.trim());
-                setFilteredExports(searchResults as unknown as MappingExport[]);
+                setFilteredExports(convertBackendResponse(searchResults));
             } catch (error) {
                 console.error('Search failed:', error);
                 // Fallback to local filtering if search API fails
                 const filtered = exports.filter(exp =>
                     exp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (exp.mappings && exp.mappings.some(mapping =>
-                        mapping.source.value.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        mapping.destination.table.toLowerCase().includes(searchTerm.toLowerCase())
-                    ))
+                    JSON.stringify(exp.mappings).toLowerCase().includes(searchTerm.toLowerCase())
                 );
                 setFilteredExports(filtered);
             }
@@ -178,7 +257,7 @@ const MappingExportsManager = () => {
                 getMappingStats()
             ]);
 
-            setExports(exportsData as unknown as MappingExport[]);
+            setExports(convertBackendResponse(exportsData));
             setStats(statsData as Stats);
 
             // Clear search term to show all data
@@ -209,9 +288,17 @@ const MappingExportsManager = () => {
         linkElement.click();
     };
 
-    // Calculate derived stats - với null check
-    const totalMappings = exports.reduce((acc, exp) => acc + (exp.mappings ? exp.mappings.length : 0), 0);
-    const totalTables = exports.reduce((acc, exp) => acc + (exp.destination_tables ? exp.destination_tables.length : 0), 0);
+    // Calculate derived stats
+    const totalMappings = exports.reduce((acc, exp) => acc + countMappingsInExport(exp.mappings), 0);
+
+    // Calculate unique tables across all exports
+    const allTables = new Set<string>();
+    exports.forEach(exp => {
+        const tables = getUniqueTablesFromExport(exp.mappings);
+        tables.forEach(table => allTables.add(table));
+    });
+    const totalTables = allTables.size;
+
     const recentExports = exports.filter(exp =>
         new Date(exp.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     ).length;
@@ -291,7 +378,7 @@ const MappingExportsManager = () => {
                                         <CheckCircle className="w-5 h-5 text-green-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600">Active Mappings</p>
+                                        <p className="text-sm text-gray-600">Total Mappings</p>
                                         <p className="text-xl font-semibold">{totalMappings}</p>
                                     </div>
                                 </div>
@@ -302,7 +389,7 @@ const MappingExportsManager = () => {
                                         <Database className="w-5 h-5 text-purple-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-600">Tables</p>
+                                        <p className="text-sm text-gray-600">Unique Sheets</p>
                                         <p className="text-xl font-semibold">{totalTables}</p>
                                     </div>
                                 </div>
@@ -374,7 +461,7 @@ const MappingExportsManager = () => {
                                             Mappings
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Tables
+                                            Files & Sheets
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Created
@@ -385,75 +472,109 @@ const MappingExportsManager = () => {
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                    {sortedExports.map((exportItem) => (
-                                        <tr key={exportItem.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="flex-shrink-0">
-                                                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                                            <Database className="w-5 h-5 text-blue-600" />
+                                    {sortedExports.map((exportItem) => {
+                                        const mappingCount = countMappingsInExport(exportItem.mappings);
+                                        const uniqueTables = getUniqueTablesFromExport(exportItem.mappings);
+                                        const uniqueFiles = getFilesFromExport(exportItem.mappings);
+
+                                        return (
+                                            <tr key={exportItem.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center">
+                                                        <div className="flex-shrink-0">
+                                                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                                <Database className="w-5 h-5 text-blue-600" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="ml-4">
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {exportItem.name}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500">
+                                                                ID: {exportItem.id.slice(0, 8)}...
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="ml-4">
-                                                        <div className="text-sm font-medium text-gray-900">
-                                                            {exportItem.name}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                            {mappingCount} mappings
+                                                        </span>
+                                                        {Object.keys(exportItem.mappings).includes('guarantors') && (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                guarantors
+                                                            </span>
+                                                        )}
+                                                        {Object.keys(exportItem.mappings).includes('joints') && (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                joints
+                                                            </span>
+                                                        )}
+                                                        {Object.keys(exportItem.mappings).includes('assets') && (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                                assets
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="space-y-1">
+                                                        <div className="text-xs text-gray-600">
+                                                            Files: {uniqueFiles.size}
                                                         </div>
-                                                        <div className="text-sm text-gray-500">
-                                                            ID: {exportItem.id}
+                                                        <div className="text-xs text-gray-600">
+                                                            Sheets: {uniqueTables.size}
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1 max-w-48">
+                                                            {Array.from(uniqueFiles).slice(0, 2).map(file => (
+                                                                <span key={file} className="inline-block bg-gray-100 px-2 py-1 rounded text-xs truncate max-w-24">
+                                                                    {file.split('.')[0]}
+                                                                </span>
+                                                            ))}
+                                                            {uniqueFiles.size > 2 && (
+                                                                <span className="inline-block bg-gray-100 px-2 py-1 rounded text-xs">
+                                                                    +{uniqueFiles.size - 2}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {exportItem.mappings ? exportItem.mappings.length : 0} mappings
-                                                </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm text-gray-900">
-                                                    {exportItem.destination_tables && exportItem.destination_tables.map(table => (
-                                                        <span key={table.id} className="inline-block bg-gray-100 px-2 py-1 rounded text-xs mr-1 mb-1">
-                                                        {table.name}
-                                                    </span>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                <div className="flex items-center">
-                                                    <Calendar className="w-4 h-4 mr-1" />
-                                                    {formatDate(exportItem.created_at)}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center space-x-2">
-                                                    <button
-                                                        onClick={() => handleViewDetails(exportItem)}
-                                                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => downloadExport(exportItem)}
-                                                        className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
-                                                        title="Download"
-                                                    >
-                                                        <Download className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(exportItem.id)}
-                                                        disabled={isLoading}
-                                                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    <div className="flex items-center">
+                                                        <Calendar className="w-4 h-4 mr-1" />
+                                                        {formatDate(exportItem.created_at)}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center space-x-2">
+                                                        <button
+                                                            onClick={() => handleViewDetails(exportItem)}
+                                                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                            title="Xem chi tiết"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => downloadExport(exportItem)}
+                                                            className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                                                            title="Download"
+                                                        >
+                                                            <Download className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(exportItem.id)}
+                                                            disabled={isLoading}
+                                                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                     </tbody>
                                 </table>
                             </div>

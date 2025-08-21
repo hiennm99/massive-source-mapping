@@ -12,44 +12,32 @@ import {
     FileText,
     Grid,
     Layers,
+    Users,
+    Link,
+    Building,
 } from "lucide-react";
 
-/** ===== Types your UI needs (non-breaking, minimal) ===== */
-type Mapping = {
-    id?: string; // keep string to match MappingExport
-    source?: { path?: string };
-    destination?: { table?: string; column?: string };
-};
-
-type DestinationGroup = {
-    destination?: Mapping["destination"];
-    mappings: Array<Mapping & { originalIndex: number }>;
-    count: number;
-};
-
-type DestinationTable = {
-    id?: string; // keep string to match MappingExport
-    name: string;
-    columns?: string[];
-};
-
-/** Base contract the component relies on */
-type BaseExport = {
+/** ===== Types for new backend structure ===== */
+interface MappingSource {
+    file: string;
+    sheet: string;
+    column: string;
+}
+interface MappingExport {
     id: string;
     name: string;
     created_at: string | Date | number;
     updated_at: string | Date | number;
-    mappings?: Mapping[];
-    destination_tables?: DestinationTable[];
-};
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
+}
 
-/** Make the component generic so it can accept your MappingExport exactly */
-interface BeautifulDetailsModalProps<T extends BaseExport = BaseExport> {
-    selectedExport: T | null | undefined;
+interface BeautifulDetailsModalProps {
+    selectedExport: MappingExport | null | undefined;
     showDetails: boolean;
     setShowDetails: (v: boolean) => void;
-    downloadExport: (exp: T) => void;
-    /** Your formatter expects a string, so we pass it a normalized string */
+    downloadExport: (exp: MappingExport) => void;
     formatDate: (d: string) => string;
 }
 
@@ -74,58 +62,186 @@ const normalizeDateInput = (v: string | number | Date): string => {
     return toStr(v);
 };
 
-function BeautifulDetailsModal<T extends BaseExport>({
-                                                         selectedExport,
-                                                         showDetails,
-                                                         setShowDetails,
-                                                         downloadExport,
-                                                         formatDate,
-                                                     }: BeautifulDetailsModalProps<T>) {
+function BeautifulDetailsModal({
+                                   selectedExport,
+                                   showDetails,
+                                   setShowDetails,
+                                   downloadExport,
+                                   formatDate,
+                               }: BeautifulDetailsModalProps) {
     if (!showDetails || !selectedExport) return null;
 
-    const parseSourcePath = (
-        path?: string
-    ): { file: string; sheet: string; column: string } => {
-        if (!path) return { file: "N/A", sheet: "N/A", column: "N/A" };
-        const parts = path.split(" > ");
-        if (parts.length >= 3) {
-            return {
-                file: parts[0] || "N/A",
-                sheet: parts[1] || "N/A",
-                column: parts.slice(2).join(" > ") || "N/A",
-            };
-        }
-        return { file: path, sheet: "N/A", column: "N/A" };
+    // Helper to count mappings
+    const countMappings = (mappings: MappingExport['mappings']): number => {
+        let count = 0;
+        Object.entries(mappings).forEach(([key, value]) => {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        count += Object.keys(item).length;
+                    });
+                }
+            } else {
+                count += 1;
+            }
+        });
+        return count;
     };
 
-    const groupMappingsByDestination = (
-        mappings: Mapping[] = []
-    ): Record<string, DestinationGroup> => {
-        return mappings.reduce<Record<string, DestinationGroup>>(
-            (groups, mapping, index) => {
-                const table = mapping.destination?.table || "unknown";
-                const column = mapping.destination?.column || "unknown";
-                const destKey = `${table}.${column}`;
-
-                if (!groups[destKey]) {
-                    groups[destKey] = {
-                        destination: mapping.destination,
-                        mappings: [],
-                        count: 0,
-                    };
+    // Helper to get unique files
+    const getUniqueFiles = (mappings: MappingExport['mappings']): Set<string> => {
+        const files = new Set<string>();
+        Object.entries(mappings).forEach(([key, value]) => {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        Object.values(item).forEach(source => {
+                            if (source && typeof source === 'object' && 'file' in source) {
+                                files.add(source.file);
+                            }
+                        });
+                    });
                 }
+            } else {
+                if (value && typeof value === 'object' && 'file' in value) {
+                    files.add(value.file);
+                }
+            }
+        });
+        return files;
+    };
 
-                groups[destKey].mappings.push({ ...mapping, originalIndex: index });
-                groups[destKey].count += 1;
-                return groups;
-            },
-            {}
+    // Helper to get unique sheets
+    const getUniqueSheets = (mappings: MappingExport['mappings']): Set<string> => {
+        const sheets = new Set<string>();
+        Object.entries(mappings).forEach(([key, value]) => {
+            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        Object.values(item).forEach(source => {
+                            if (source && typeof source === 'object' && 'sheet' in source) {
+                                sheets.add(source.sheet);
+                            }
+                        });
+                    });
+                }
+            } else {
+                if (value && typeof value === 'object' && 'sheet' in value) {
+                    sheets.add(value.sheet);
+                }
+            }
+        });
+        return sheets;
+    };
+
+    // Helper to render mapping source
+    const renderMappingSource = (source: MappingSource, label: string, icon: React.ReactNode) => (
+        <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+                <h5 className="font-medium text-gray-900 flex items-center">
+                    {icon}
+                    {label}
+                </h5>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                    <div className="flex items-center">
+                        <FileText className="w-4 h-4 text-blue-600 mr-1" />
+                        <span className="text-xs font-semibold text-gray-600 uppercase">File</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-blue-200">
+                        <code className="text-xs text-blue-800 break-all font-medium">
+                            {source.file}
+                        </code>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex items-center">
+                        <Grid className="w-4 h-4 text-indigo-600 mr-1" />
+                        <span className="text-xs font-semibold text-gray-600 uppercase">Sheet</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-indigo-200">
+                        <code className="text-xs text-indigo-800 break-all font-medium">
+                            {source.sheet}
+                        </code>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex items-center">
+                        <Layers className="w-4 h-4 text-purple-600 mr-1" />
+                        <span className="text-xs font-semibold text-gray-600 uppercase">Column</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-purple-200">
+                        <code className="text-xs text-purple-800 break-all font-medium">
+                            {source.column}
+                        </code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    // Helper to render array mappings (guarantors, joints, assets)
+    const renderArrayMappings = (items: Array<{[key: string]: MappingSource}>, title: string, icon: React.ReactNode, color: string) => {
+        if (items.length === 0) return null;
+
+        return (
+            <div className="mb-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className={`text-xl font-bold text-gray-900 flex items-center`}>
+                        {icon}
+                        {title}
+                        <span className={`ml-2 px-3 py-1 bg-${color}-100 text-${color}-800 rounded-full text-sm font-medium`}>
+                            {items.length} items
+                        </span>
+                    </h3>
+                </div>
+                <div className="space-y-6">
+                    {items.map((item, itemIndex) => (
+                        <div
+                            key={itemIndex}
+                            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200"
+                        >
+                            <div className={`bg-gradient-to-r from-${color}-500 to-${color}-600 p-4`}>
+                                <div className="flex items-center justify-between text-white">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                                            {icon}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-bold">
+                                                {title.slice(0, -1)} #{itemIndex + 1}
+                                            </h4>
+                                            <p className={`text-${color}-100 text-sm`}>
+                                                {Object.keys(item).length} field{Object.keys(item).length > 1 ? 's' : ''} mapped
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                {Object.entries(item).map(([fieldKey, fieldSource]) => (
+                                    renderMappingSource(
+                                        fieldSource,
+                                        fieldKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                                        <div className={`w-6 h-6 bg-${color}-100 rounded-lg flex items-center justify-center mr-2`}>
+                                            <span className={`text-xs font-bold text-${color}-600`}>
+                                                {fieldKey.charAt(0).toUpperCase()}
+                                            </span>
+                                        </div>
+                                    )
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         );
     };
 
-    const groupedMappings = groupMappingsByDestination(
-        selectedExport.mappings ?? []
-    );
+    const totalMappings = countMappings(selectedExport.mappings);
+    const uniqueFiles = getUniqueFiles(selectedExport.mappings);
+    const uniqueSheets = getUniqueSheets(selectedExport.mappings);
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -188,222 +304,146 @@ function BeautifulDetailsModal<T extends BaseExport>({
                                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                                     <MapPin className="w-6 h-6 text-blue-600" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {selectedExport.mappings?.length ?? 0}
-                                </p>
+                                <p className="text-2xl font-bold text-gray-900">{totalMappings}</p>
                                 <p className="text-sm text-gray-600">Total Mappings</p>
                             </div>
                             <div className="text-center">
                                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    <Target className="w-6 h-6 text-green-600" />
+                                    <FileText className="w-6 h-6 text-green-600" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {Object.keys(groupedMappings).length}
-                                </p>
-                                <p className="text-sm text-gray-600">Unique Destinations</p>
+                                <p className="text-2xl font-bold text-gray-900">{uniqueFiles.size}</p>
+                                <p className="text-sm text-gray-600">Unique Files</p>
                             </div>
                             <div className="text-center">
                                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    <Database className="w-6 h-6 text-purple-600" />
+                                    <Grid className="w-6 h-6 text-purple-600" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {toStr(selectedExport.id).slice(0, 8)}
-                                </p>
-                                <p className="text-sm text-gray-600">Export ID</p>
+                                <p className="text-2xl font-bold text-gray-900">{uniqueSheets.size}</p>
+                                <p className="text-sm text-gray-600">Unique Sheets</p>
                             </div>
                             <div className="text-center">
                                 <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                                     <FolderTree className="w-6 h-6 text-orange-600" />
                                 </div>
-                                <p className="text-2xl font-bold text-gray-900">JSON</p>
-                                <p className="text-sm text-gray-600">Format</p>
+                                <p className="text-2xl font-bold text-gray-900">{shortId(selectedExport.id)}</p>
+                                <p className="text-sm text-gray-600">Export ID</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Grouped Mappings */}
+                    {/* Regular Mappings */}
                     <div className="mb-8">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                                <Layers className="w-6 h-6 text-blue-600 mr-2" />
-                                Grouped Data Mappings
-                                <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                  {Object.keys(groupedMappings).length} destinations
-                </span>
+                                <Target className="w-6 h-6 text-blue-600 mr-2" />
+                                Regular Field Mappings
                             </h3>
                         </div>
-
-                        <div className="space-y-6">
-                            {(
-                                Object.entries(
-                                    groupedMappings
-                                ) as Array<[string, DestinationGroup]>
-                            ).map(([destKey, group], groupIndex) => (
-                                <div
-                                    key={destKey}
-                                    className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200"
-                                >
-                                    {/* Destination Header */}
-                                    <div className="bg-gradient-to-r from-emerald-500 to-green-600 p-4">
-                                        <div className="flex items-center justify-between text-white">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                                                    <Target className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-lg font-bold flex items-center space-x-2">
-                            <span>
-                              {group.destination?.table || "Unknown Table"}
-                            </span>
-                                                        <span className="text-green-100">.</span>
-                                                        <span className="text-yellow-200">
-                              {group.destination?.column || "Unknown Column"}
-                            </span>
-                                                    </h4>
-                                                    <p className="text-green-100 text-sm">
-                                                        {group.count} source
-                                                        {group.count > 1 ? "s" : ""} mapped to this
-                                                        destination
-                                                    </p>
-                                                </div>
+                        <div className="space-y-4">
+                            {Object.entries(selectedExport.mappings)
+                                .filter(([key]) => !['guarantors', 'joints', 'assets'].includes(key))
+                                .map(([key, value]) => {
+                                    if (value && typeof value === 'object' && 'file' in value) {
+                                        return renderMappingSource(
+                                            value as MappingSource,
+                                            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                                            <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
+                                                <span className="text-xs font-bold text-blue-600">
+                                                    {key.charAt(0).toUpperCase()}
+                                                </span>
                                             </div>
-                                            <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
-                        Group #{groupIndex + 1}
-                      </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Source Mappings */}
-                                    <div className="p-6">
-                                        <div className="space-y-4">
-                                            {group.mappings.map((mapping) => {
-                                                const sourceParts = parseSourcePath(mapping.source?.path);
-                                                return (
-                                                    <div
-                                                        key={mapping.id ?? mapping.originalIndex}
-                                                        className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-xl border border-gray-200"
-                                                    >
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <h5 className="font-medium text-gray-900 flex items-center">
-                                                                <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
-                                  <span className="text-xs font-bold text-blue-600">
-                                    {mapping.originalIndex + 1}
-                                  </span>
-                                                                </div>
-                                                                Source #{mapping.originalIndex + 1}
-                                                            </h5>
-                                                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-mono">
-                                {shortId(mapping.id)}
-                              </span>
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center">
-                                                                    <FileText className="w-4 h-4 text-blue-600 mr-1" />
-                                                                    <span className="text-xs font-semibold text-gray-600 uppercase">
-                                    File
-                                  </span>
-                                                                </div>
-                                                                <div className="bg-white p-3 rounded-lg border border-blue-200">
-                                                                    <code className="text-xs text-blue-800 break-all font-medium">
-                                                                        {sourceParts.file}
-                                                                    </code>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center">
-                                                                    <Grid className="w-4 h-4 text-indigo-600 mr-1" />
-                                                                    <span className="text-xs font-semibold text-gray-600 uppercase">
-                                    Sheet
-                                  </span>
-                                                                </div>
-                                                                <div className="bg-white p-3 rounded-lg border border-indigo-200">
-                                                                    <code className="text-xs text-indigo-800 break-all font-medium">
-                                                                        {sourceParts.sheet}
-                                                                    </code>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center">
-                                                                    <Layers className="w-4 h-4 text-purple-600 mr-1" />
-                                                                    <span className="text-xs font-semibold text-gray-600 uppercase">
-                                    Column
-                                  </span>
-                                                                </div>
-                                                                <div className="bg-white p-3 rounded-lg border border-purple-200">
-                                                                    <code className="text-xs text-purple-800 break-all font-medium">
-                                                                        {sourceParts.column}
-                                                                    </code>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                        );
+                                    }
+                                    return null;
+                                })
+                            }
                         </div>
                     </div>
 
-                    {/* Destination Tables */}
-                    <div>
+                    {/* Guarantors */}
+                    {selectedExport.mappings.guarantors && Array.isArray(selectedExport.mappings.guarantors) &&
+                        renderArrayMappings(
+                            selectedExport.mappings.guarantors,
+                            "Guarantors",
+                            <Users className="w-5 h-5 text-white" />,
+                            "green"
+                        )
+                    }
+
+                    {/* Joints */}
+                    {selectedExport.mappings.joints && Array.isArray(selectedExport.mappings.joints) &&
+                        renderArrayMappings(
+                            selectedExport.mappings.joints,
+                            "Joint Borrowers",
+                            <Link className="w-5 h-5 text-white" />,
+                            "purple"
+                        )
+                    }
+
+                    {/* Assets */}
+                    {selectedExport.mappings.assets && Array.isArray(selectedExport.mappings.assets) &&
+                        renderArrayMappings(
+                            selectedExport.mappings.assets,
+                            "Assets",
+                            <Building className="w-5 h-5 text-white" />,
+                            "orange"
+                        )
+                    }
+
+                    {/* Files and Sheets Summary */}
+                    <div className="mb-8">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900 flex items-center">
                                 <Table className="w-6 h-6 text-green-600 mr-2" />
-                                Destination Tables
-                                <span className="ml-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                  {selectedExport.destination_tables?.length ?? 0} tables
-                </span>
+                                Source Files & Sheets
                             </h3>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {selectedExport.destination_tables?.map((table) => (
-                                <div
-                                    key={table.id ?? table.name}
-                                    className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200"
-                                >
-                                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-4">
-                                        <div className="flex items-center">
-                                            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center mr-3">
-                                                <Table className="w-5 h-5 text-white" />
-                                            </div>
-                                            <h4 className="font-bold text-white text-lg">
-                                                {table.name}
-                                            </h4>
+                            {/* Files */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
+                                    <div className="flex items-center">
+                                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center mr-3">
+                                            <FileText className="w-5 h-5 text-white" />
                                         </div>
-                                    </div>
-
-                                    <div className="p-4">
-                                        {table.columns && table.columns.length > 0 ? (
-                                            <div className="space-y-2">
-                                                <p className="text-sm font-medium text-gray-700 mb-3">
-                                                    Columns ({table.columns.length})
-                                                </p>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {table.columns.map((column, index) => (
-                                                        <span
-                                                            key={`${table.name}-${index}-${column}`}
-                                                            className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-full text-xs font-medium hover:from-blue-100 hover:to-blue-200 hover:text-blue-800 transition-colors"
-                                                        >
-                              {column}
-                            </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-gray-500 text-sm italic">
-                                                No columns defined
-                                            </p>
-                                        )}
+                                        <h4 className="font-bold text-white text-lg">Source Files ({uniqueFiles.size})</h4>
                                     </div>
                                 </div>
-                            ))}
+                                <div className="p-4">
+                                    <div className="space-y-2">
+                                        {Array.from(uniqueFiles).map((file) => (
+                                            <div key={file} className="flex items-center p-2 bg-gray-50 rounded-lg">
+                                                <FileText className="w-4 h-4 text-blue-600 mr-2" />
+                                                <span className="text-sm font-medium text-gray-700 truncate">{file}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sheets */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-4">
+                                    <div className="flex items-center">
+                                        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center mr-3">
+                                            <Grid className="w-5 h-5 text-white" />
+                                        </div>
+                                        <h4 className="font-bold text-white text-lg">Sheets Used ({uniqueSheets.size})</h4>
+                                    </div>
+                                </div>
+                                <div className="p-4">
+                                    <div className="flex flex-wrap gap-2">
+                                        {Array.from(uniqueSheets).map((sheet) => (
+                                            <span
+                                                key={sheet}
+                                                className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-full text-xs font-medium hover:from-green-100 hover:to-green-200 hover:text-green-800 transition-colors"
+                                            >
+                                                {sheet}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -439,5 +479,4 @@ function BeautifulDetailsModal<T extends BaseExport>({
     );
 }
 
-/** Important: default export preserves generics */
 export default BeautifulDetailsModal;

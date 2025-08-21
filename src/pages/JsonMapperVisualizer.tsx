@@ -1,4 +1,4 @@
-// JsonMapperVisualizer.tsx - Main component that orchestrates everything
+// JsonMapperVisualizer.tsx - Updated main component
 import React, { useState, useCallback } from 'react';
 import { Table, Save, Loader2 } from 'lucide-react';
 import ScannedSchema from '../data/scanned_schema.json';
@@ -16,7 +16,7 @@ import { DestinationTablesPanel } from '../components/DestinationTablesPanel';
 import { LoadingOverlay } from '../components/LoadingOverlay';
 import { ToastNotification } from '../components/ToastNotification';
 import { PanelHeader } from '../components/PanelHeader';
-import type {FileData} from '../types';
+import type { FileData } from '../types';
 
 const JsonMapperVisualizer: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -26,6 +26,7 @@ const JsonMapperVisualizer: React.FC = () => {
 
     // Add source filter state
     const [sourceGlobalFilter, setSourceGlobalFilter] = useState<string>('');
+    const [, setExportMessage] = useState<string>('');
 
     // Custom hooks
     const {
@@ -47,9 +48,7 @@ const JsonMapperVisualizer: React.FC = () => {
         destinationTables,
         globalFilter: destinationGlobalFilter,
         setGlobalFilter: setDestinationGlobalFilter,
-        getFilteredColumns,
-        removeTable,
-        removeColumn
+        getFilteredColumns
     } = useDestinationTables();
 
     const {
@@ -71,33 +70,43 @@ const JsonMapperVisualizer: React.FC = () => {
         });
     }, []);
 
-    const handleRemoveTable = useCallback((tableId: string): void => {
-        const tableToRemove = removeTable(tableId);
-        if (tableToRemove) {
-            setMappings(prev => prev.filter(mapping =>
-                mapping.destination.table !== tableToRemove.name
-            ));
-        }
-    }, [removeTable, setMappings]);
+    const handleSave = useCallback(async (): Promise<void> => {
+        try {
+            // Check if we have mappings to export
+            if (!mappings || mappings.length === 0) {
+                setExportMessage('No mappings to save. Please create some mappings first.');
+                setTimeout(() => setExportMessage(''), 3000);
+                return;
+            }
 
-    const handleRemoveColumn = useCallback((tableId: string, columnToRemove: string): void => {
-        const table = removeColumn(tableId, columnToRemove);
-        if (table) {
-            setMappings(prev => prev.filter(mapping =>
-                !(mapping.destination.table === table.name && mapping.destination.column === columnToRemove)
-            ));
-        }
-    }, [removeColumn, setMappings]);
+            console.log('Starting export with mappings:', mappings.length);
 
-    const handleExport = useCallback(async (): Promise<void> => {
-        const result = await exportMappings(mappings, destinationTables);
-        if (result) {
-            // Clear mappings on successful export
-            setTimeout(() => {
-                setMappings([]);
-            }, 3000);
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            const result = await exportMappings(mappings, destinationTables);
+
+            if (result) {
+                console.log('Export successful, clearing mappings after delay...');
+                // Clear mappings on successful export after showing success message
+                setTimeout(() => {
+                    setMappings([]);
+                    console.log('Mappings cleared');
+                }, 3000);
+            }
+        } catch (error) {
+            console.error('Save failed:', error);
+            // Error message is already handled by the exportMappings function
+            // Just log it here for debugging
         }
     }, [exportMappings, mappings, destinationTables, setMappings]);
+
+    // Helper function to get mapping count for display
+    const getMappingCountDisplay = useCallback((): string => {
+        const count = mappings.length;
+        if (count === 0) return 'No mappings';
+        if (count === 1) return '1 mapping';
+        return `${count} mappings`;
+    }, [mappings.length]);
 
     return (
         <>
@@ -136,18 +145,27 @@ const JsonMapperVisualizer: React.FC = () => {
                         title="Destination Tables"
                         gradient="bg-gradient-to-r from-teal-500 via-emerald-600 to-green-600"
                     >
-                        <button
-                            onClick={handleExport}
-                            disabled={isExporting}
-                            className="bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-white hover:from-amber-600 hover:via-orange-700 hover:to-red-700 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 text-sm flex items-center transition-colors rounded-lg"
-                        >
-                            {isExporting ? (
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            ) : (
-                                <Save className="w-4 h-4 mr-1 text-white" />
-                            )}
-                            {isExporting ? 'Saving...' : 'Save'}
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {/* Mapping count indicator */}
+                            <span className="text-sm text-white/80 bg-white/20 px-2 py-1 rounded">
+                                {getMappingCountDisplay()}
+                            </span>
+
+                            {/* Save button */}
+                            <button
+                                onClick={handleSave}
+                                disabled={isExporting || mappings.length === 0}
+                                className="bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 text-white hover:from-amber-600 hover:via-orange-700 hover:to-red-700 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 text-sm flex items-center transition-colors rounded-lg"
+                                title={mappings.length === 0 ? "No mappings to save" : "Save current mappings"}
+                            >
+                                {isExporting ? (
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                ) : (
+                                    <Save className="w-4 h-4 mr-1 text-white" />
+                                )}
+                                {isExporting ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
                     </PanelHeader>
 
                     <DestinationTablesPanel
@@ -158,8 +176,6 @@ const JsonMapperVisualizer: React.FC = () => {
                         getFilteredColumns={getFilteredColumns}
                         onDragOver={handleDragOver}
                         onDrop={handleDrop}
-                        onRemoveTable={handleRemoveTable}
-                        onRemoveColumn={handleRemoveColumn}
                         onRemoveMapping={removeMapping}
                     />
                 </div>

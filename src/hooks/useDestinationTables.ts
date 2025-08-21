@@ -1,109 +1,140 @@
 // hooks/useDestinationTables.ts - Hook for managing destination tables
 import { useState, useCallback } from 'react';
-import type {DestinationTable} from '../types';
+import type {DestinationTable, TableConfig} from '../types';
 
 export const useDestinationTables = () => {
-    const [destinationTables, setDestinationTables] = useState<DestinationTable[]>([
-        {
+    const [config, setConfig] = useState<TableConfig>({
+        maxGuarantors: 3,
+        maxJointBorrowers: 3,
+        maxAssets: 3
+    });
+
+    // Generate columns dynamically
+    const generateTable = useCallback((config: TableConfig) => {
+        const baseColumns = [
+            'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
+            'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
+            'ndg', 'gbv', 'dbt_date', 'originator',
+            'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number'
+        ];
+
+        const guarantorFields = [
+            'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
+            'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
+            'ndg', 'phone_number', 'email', 'type', 'limit'
+        ];
+
+        const jointFields = [
+            'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
+            'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
+            'ndg', 'phone_number', 'email'
+        ];
+
+        const assetFields = [
+            'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
+            'country', 'postcode', 'region', 'province', 'city', 'address',
+            'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
+        ];
+
+        const columns = [...baseColumns];
+
+        // Generate guarantor columns
+        for (let i = 1; i <= config.maxGuarantors; i++) {
+            guarantorFields.forEach(field => {
+                columns.push(`guarantor_${i}_${field}`);
+            });
+        }
+
+        // Generate joint borrower columns
+        for (let i = 1; i <= config.maxJointBorrowers; i++) {
+            jointFields.forEach(field => {
+                columns.push(`joint_${i}_${field}`);
+            });
+        }
+
+        // Generate asset columns
+        for (let i = 1; i <= config.maxAssets; i++) {
+            assetFields.forEach(field => {
+                columns.push(`asset_${i}_${field}`);
+            });
+        }
+
+        return {
             id: 'main_borrower_table',
             name: 'main_borrower',
-            columns: [
-                'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
-                'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
-                'ndg', 'gbv', 'dbt_date', 'originator',
-                'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number',
+            columns
+        };
+    }, []);
 
-                'guarantor_fiscal_code', 'guarantor_name', 'guarantor_gender', 'guarantor_dob', 'guarantor_pob', 'guarantor_note',
-                'guarantor_country', 'guarantor_postcode', 'guarantor_region', 'guarantor_province', 'guarantor_city', 'guarantor_address', 'guarantor_vat_number',
-                'guarantor_ndg',
-                'guarantor_phone_number', 'guarantor_email',
-                'guarantor_type', 'guarantor_limit',
-
-                'joint_fiscal_code', 'joint_name', 'joint_gender', 'joint_dob', 'joint_pob', 'joint_note',
-                'joint_country', 'joint_postcode', 'joint_region', 'joint_province', 'joint_city', 'joint_address', 'joint_vat_number',
-                'joint_ndg',
-                'joint_phone_number', 'joint_email',
-
-                'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
-                'country', 'postcode', 'region', 'province', 'city', 'address',
-                'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
-
-            ]
-        },
-        // {
-        //     id: 'guarantor_borrower_table',
-        //     name: 'guarantor_borrower',
-        //     columns: [
-        //         'guarantor_fiscal_code', 'guarantor_name', 'guarantor_gender', 'guarantor_dob', 'guarantor_pob', 'guarantor_note',
-        //         'guarantor_country', 'guarantor_postcode', 'guarantor_region', 'guarantor_province', 'guarantor_city', 'guarantor_address', 'guarantor_vat_number',
-        //         'guarantor_ndg',
-        //         'guarantor_phone_number', 'guarantor_email',
-        //         'guarantor_type', 'guarantor_limit'
-        //     ]
-        // },
-        // {
-        //     id: 'joint_borrower_table',
-        //     name: 'joint_borrower',
-        //     columns: [
-        //         'joint_fiscal_code', 'joint_name', 'joint_gender', 'joint_dob', 'joint_pob', 'joint_note',
-        //         'joint_country', 'joint_postcode', 'joint_region', 'joint_province', 'joint_city', 'joint_address', 'joint_vat_number',
-        //         'joint_ndg',
-        //         'joint_phone_number', 'joint_email'
-        //     ]
-        // },
-        // {
-        //     id: 'asset_table',
-        //     name: 'asset',
-        //     columns: [
-        //         'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
-        //         'country', 'postcode', 'region', 'province', 'city', 'address',
-        //         'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
-        //     ]
-        // }
+    const [destinationTables, setDestinationTables] = useState<DestinationTable[]>([
+        generateTable(config)
     ]);
 
-    // Global filter for all tables
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    // Filter columns based on global search term
     const getFilteredColumns = useCallback((table: DestinationTable): string[] => {
         if (!globalFilter.trim()) {
             return table.columns;
         }
-
         return table.columns.filter(column =>
             column.toLowerCase().includes(globalFilter.toLowerCase())
         );
     }, [globalFilter]);
 
-    const removeTable = useCallback((tableId: string): DestinationTable | undefined => {
-        const tableToRemove = destinationTables.find(table => table.id === tableId);
-        setDestinationTables(prev => prev.filter(table => table.id !== tableId));
+    // Update config and regenerate table
+    const updateConfig = useCallback((newConfig: Partial<TableConfig>) => {
+        const updatedConfig = { ...config, ...newConfig };
+        setConfig(updatedConfig);
+        setDestinationTables([generateTable(updatedConfig)]);
+    }, [config, generateTable]);
 
-        return tableToRemove;
-    }, [destinationTables]);
+    const addGuarantorSlot = useCallback(() => {
+        if (config.maxGuarantors < 10) {
+            updateConfig({ maxGuarantors: config.maxGuarantors + 1 });
+        }
+    }, [config.maxGuarantors, updateConfig]);
 
-    const removeColumn = useCallback((tableId: string, columnToRemove: string): DestinationTable | undefined => {
-        // Remove column from table
-        setDestinationTables(prev =>
-            prev.map(table =>
-                table.id === tableId
-                    ? { ...table, columns: table.columns.filter(col => col !== columnToRemove) }
-                    : table
-            )
-        );
+    const removeGuarantorSlot = useCallback(() => {
+        if (config.maxGuarantors > 0) {
+            updateConfig({ maxGuarantors: config.maxGuarantors - 1 });
+        }
+    }, [config.maxGuarantors, updateConfig]);
 
-        // Return the table for cleanup purposes
-        return destinationTables.find(t => t.id === tableId);
-    }, [destinationTables]);
+    const addJointSlot = useCallback(() => {
+        if (config.maxJointBorrowers < 5) {
+            updateConfig({ maxJointBorrowers: config.maxJointBorrowers + 1 });
+        }
+    }, [config.maxJointBorrowers, updateConfig]);
+
+    const removeJointSlot = useCallback(() => {
+        if (config.maxJointBorrowers > 0) {
+            updateConfig({ maxJointBorrowers: config.maxJointBorrowers - 1 });
+        }
+    }, [config.maxJointBorrowers, updateConfig]);
+
+    const addAssetSlot = useCallback(() => {
+        if (config.maxAssets < 20) {
+            updateConfig({ maxAssets: config.maxAssets + 1 });
+        }
+    }, [config.maxAssets, updateConfig]);
+
+    const removeAssetSlot = useCallback(() => {
+        if (config.maxAssets > 0) {
+            updateConfig({ maxAssets: config.maxAssets - 1 });
+        }
+    }, [config.maxAssets, updateConfig]);
 
     return {
         destinationTables,
-        setDestinationTables,
         globalFilter,
         setGlobalFilter,
         getFilteredColumns,
-        removeTable,
-        removeColumn
+        config,
+        addGuarantorSlot,
+        removeGuarantorSlot,
+        addJointSlot,
+        removeJointSlot,
+        addAssetSlot,
+        removeAssetSlot
     };
 };
