@@ -11,35 +11,7 @@ import {
     getMappingStats
 } from '../services/mappingExportService.tsx';
 import {useNavigate} from "react-router";
-
-interface MappingSource {
-    file: string;
-    sheet: string;
-    column: string;
-}
-
-interface MappingExportResponse {
-    id: string;
-    success: boolean;
-    data: MappingExport[];
-    message?: string;
-}
-
-// Type definitions matching backend format
-interface MappingExport {
-    id: string;
-    name: string;
-    created_at: string;
-    updated_at: string;
-    mappings: {
-        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
-    };
-}
-
-interface Stats {
-    total_mappings: number;
-    timestamp: string;
-}
+import type { MappingExportResponse, MappingExport, Stats} from "../types";
 
 const MappingExportsManager = () => {
     const navigate = useNavigate();
@@ -586,7 +558,6 @@ const MappingExportsManager = () => {
                         selectedExport={selectedExport}
                         showDetails={showDetails}
                         setShowDetails={setShowDetails}
-                        downloadExport={downloadExport}
                         formatDate={formatDate}
                     />
 

@@ -4,7 +4,6 @@ import {
     Database,
     MapPin,
     Table,
-    Download,
     Clock,
     Hash,
     FolderTree,
@@ -37,7 +36,6 @@ interface BeautifulDetailsModalProps {
     selectedExport: MappingExport | null | undefined;
     showDetails: boolean;
     setShowDetails: (v: boolean) => void;
-    downloadExport: (exp: MappingExport) => void;
     formatDate: (d: string) => string;
 }
 
@@ -66,7 +64,6 @@ function BeautifulDetailsModal({
                                    selectedExport,
                                    showDetails,
                                    setShowDetails,
-                                   downloadExport,
                                    formatDate,
                                }: BeautifulDetailsModalProps) {
     if (!showDetails || !selectedExport) return null;
@@ -463,13 +460,6 @@ function BeautifulDetailsModal({
                                 className="px-6 py-2 text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 font-medium"
                             >
                                 Close
-                            </button>
-                            <button
-                                onClick={() => downloadExport(selectedExport)}
-                                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium flex items-center space-x-2 shadow-md hover:shadow-lg"
-                            >
-                                <Download className="w-4 h-4" />
-                                <span>Download JSON</span>
                             </button>
                         </div>
                     </div>

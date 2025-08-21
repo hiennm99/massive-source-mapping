@@ -1,33 +1,6 @@
 // File: src/services/mappingExportService.ts - UPDATED FOR BACKEND COMPATIBILITY
 import { toast } from 'sonner';
-
-// Type definitions matching the exact backend structure
-interface MappingSource {
-    file: string;
-    sheet: string;
-    column: string;
-}
-
-interface MappingExportData {
-    name: string;
-    mappings: {
-        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
-    };
-}
-
-interface MappingExportResponse {
-    id: string;
-    name: string;
-    mappings: {
-        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
-    };
-    created_at: string;
-    updated_at: string;
-}
-
-interface ApiError {
-    detail: string | unknown[];
-}
+import type {MappingExportResponse, MappingSource, MappingExportData, ApiError} from "../types";
 
 // Backend config
 const BACKEND_URL = 'https://massive-source-mapping-backend-production.up.railway.app';

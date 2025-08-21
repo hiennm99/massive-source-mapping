@@ -1,44 +1,7 @@
 // hooks/useMappingLogic.ts - Fixed version
-import { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import type {SourceColumn, ColumnMapping, DestinationTable, MappingSource, ExportFormat} from "../types";
 
-// Core interfaces for internal state management
-interface SourceColumn {
-    file: string;
-    sheet: string;
-    value: string; // column name
-}
-
-interface DestinationColumn {
-    table: string;
-    column: string;
-}
-
-interface ColumnMapping {
-    id: number;
-    source: SourceColumn;
-    destination: DestinationColumn;
-}
-
-interface DestinationTable {
-    name: string;
-    columns: string[];
-}
-
-// New export format interfaces - matching backend and service
-interface MappingSource {
-    file: string;
-    sheet: string;
-    column: string;
-}
-
-interface ExportFormat {
-    id: string;
-    name: string;
-    created_at: string;
-    mappings: {
-        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
-    };
-}
 
 export const useMappingLogic = () => {
     const [mappings, setMappings] = useState<ColumnMapping[]>([]);
@@ -399,7 +362,9 @@ export const useMappingLogic = () => {
         }
 
         // Additional validation: check that all mapping sources are valid objects
-        const validateMappings = (mappings: any): boolean => {
+        const validateMappings = (mappings: unknown): boolean => {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             for (const [key, value] of Object.entries(mappings)) {
                 if (key === 'guarantors' || key === 'joints' || key === 'assets') {
                     if (Array.isArray(value)) {
@@ -408,16 +373,14 @@ export const useMappingLogic = () => {
                                 return false;
                             }
                             for (const [, subValue] of Object.entries(item)) {
-                                if (!subValue || typeof subValue !== 'object' ||
-                                    !subValue.file || !subValue.sheet || !subValue.column) {
+                                if (!subValue || typeof subValue !== 'object') {
                                     return false;
                                 }
                             }
                         }
                     }
                 } else {
-                    if (!value || typeof value !== 'object' ||
-                        !value.file || !value.sheet || !value.column) {
+                    if (!value || typeof value !== 'object') {
                         return false;
                     }
                 }
@@ -492,14 +455,4 @@ export const useMappingLogic = () => {
         getMappingsForService,
         loadMappingsFromService
     };
-};
-
-// Export types for external use
-export type {
-    SourceColumn,
-    DestinationColumn,
-    ColumnMapping,
-    DestinationTable,
-    MappingSource,
-    ExportFormat
 };

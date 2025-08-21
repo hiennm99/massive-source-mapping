@@ -1,6 +1,6 @@
-// hooks/useDestinationTables.ts - Hook for managing destination tables
+// src/hooks/useDestinationTables.ts - Fixed version
 import { useState, useCallback } from 'react';
-import type {DestinationTable, TableConfig} from '../types';
+import type { DestinationTable, TableConfig } from '../types';
 
 export const useDestinationTables = () => {
     const [config, setConfig] = useState<TableConfig>({
@@ -10,12 +10,12 @@ export const useDestinationTables = () => {
     });
 
     // Generate columns dynamically
-    const generateTable = useCallback((config: TableConfig) => {
+    const generateTable = useCallback((config: TableConfig): DestinationTable => {
         const baseColumns = [
             'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
             'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
             'ndg', 'gbv', 'dbt_date', 'originator',
-            'phone_number', 'email', 'bank_abi', 'bank_cab', 'account_number'
+            'phone_number', 'email', 'bank_abi', 'bank_cab', 'bank_account'
         ];
 
         const guarantorFields = [
@@ -60,7 +60,6 @@ export const useDestinationTables = () => {
         }
 
         return {
-            id: 'main_borrower_table',
             name: 'main_borrower',
             columns
         };

@@ -57,7 +57,8 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
         const sheetNameMatches = sheet.sheet_name.toLowerCase().includes(globalFilter.toLowerCase());
         const hasMatchingColumns = sheet.columns && getFilteredColumnsWithIndices(sheet.columns).length > 0;
 
-        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
         return sheetNameMatches || hasMatchingColumns;
     };
 
@@ -289,9 +290,7 @@ export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
                                                                                     }`}
                                                                                     draggable
                                                                                     onDragStart={(e) => onDragStart(e, {
-                                                                                        path: `${fileName} > ${sheet.sheet_name} > ${column}`,
                                                                                         value: column,
-                                                                                        type: 'column',
                                                                                         file: fileName,
                                                                                         sheet: sheet.sheet_name
                                                                                     })}

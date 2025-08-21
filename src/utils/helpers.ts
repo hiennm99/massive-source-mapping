@@ -132,3 +132,16 @@ export const createExportSummary = (
         averageMappingsPerTable: tablesWithMappings > 0 ? (mappings.length / tablesWithMappings).toFixed(1) : '0'
     };
 };
+
+export function formatColumnName(column: string): string {
+    // Lấy toàn bộ chữ (bỏ số và ký tự đặc biệt)
+    const column_text = column.match(/[A-Za-z]+/g);
+
+    if (!column_text) return column; // Trường hợp không có chữ
+
+    return column_text
+        .join("_") // Ghép lại thành "snake_case"
+        .split("_")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}

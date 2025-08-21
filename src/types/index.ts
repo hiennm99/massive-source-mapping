@@ -1,3 +1,5 @@
+import type {MappingSource} from "../services/mappingExportService.tsx";
+
 export interface ColumnGroup {
     name: string;
     prefix: string;
@@ -39,4 +41,14 @@ export interface ColumnMapping {
 export interface DestinationTable {
     name: string;
     columns: string[];
+}
+
+export interface MappingExportResponse {
+    id: string;
+    name: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
+    created_at: string;
+    updated_at: string;
 }

@@ -1,8 +1,10 @@
 // components/DestinationTablesPanel.tsx - Main tabs with sub-tabs layout
-import React, { useState } from 'react';
-import { Trash2, Columns, Search, X, Users, Shield, Home } from 'lucide-react';
-import { useDestinationTables } from '../hooks/useDestinationTables';
+import React, {useState} from 'react';
+import {Trash2, Columns, Search, X, Users, Shield, Home} from 'lucide-react';
+import {useDestinationTables} from '../hooks/useDestinationTables';
 import type {DestinationTable, ColumnMapping} from '../types';
+import {formatColumnName} from "../utils/helpers.ts";
+
 
 interface ColumnGroup {
     name: string;
@@ -22,23 +24,27 @@ interface TabGroup {
 }
 
 interface DestinationTablesPanelProps {
-    mappings: ColumnMapping[];
-    onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDrop: (e: React.DragEvent<HTMLDivElement>, destinationTable: DestinationTable, destinationColumn: string) => void;
-    onRemoveMapping: (mappingId: number) => void;
+    destinationTables: DestinationTable[],
+    mappings: ColumnMapping[],
+    onDragOver: (e: React.DragEvent<HTMLDivElement>) => void,
+    onDrop: (e: React.DragEvent<HTMLDivElement>, destinationTable: DestinationTable, destinationColumn: string) => void,
+    onRemoveMapping: (mappingId: number) => void,
+    globalFilter: string,
+    onGlobalFilterChange: (value: string) => void,
+    getFilteredColumns?: (table: DestinationTable) => string[]
 }
 
 export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                                   mappings,
                                                                                   onDragOver,
                                                                                   onDrop,
-                                                                                  onRemoveMapping
+                                                                                  onRemoveMapping,
+                                                                                  getFilteredColumns
                                                                               }) => {
     const {
         destinationTables,
         globalFilter,
         setGlobalFilter,
-        getFilteredColumns,
         config,
         addGuarantorSlot,
         addJointSlot,
@@ -75,7 +81,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                         name: `Guarantor ${number}`,
                         prefix: groupKey,
                         columns: [],
-                        icon: <Shield className="w-4 h-4" />,
+                        icon: <Shield className="w-4 h-4"/>,
                         color: 'green',
                         instanceNumber: number
                     };
@@ -90,7 +96,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                         name: `Joint Borrower ${number}`,
                         prefix: groupKey,
                         columns: [],
-                        icon: <Users className="w-4 h-4" />,
+                        icon: <Users className="w-4 h-4"/>,
                         color: 'purple',
                         instanceNumber: number
                     };
@@ -105,7 +111,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                         name: `Asset ${number}`,
                         prefix: groupKey,
                         columns: [],
-                        icon: <Home className="w-4 h-4" />,
+                        icon: <Home className="w-4 h-4"/>,
                         color: 'orange',
                         instanceNumber: number
                     };
@@ -125,13 +131,13 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             {
                 key: 'general',
                 name: 'General',
-                icon: <Users className="w-5 h-5" />,
+                icon: <Users className="w-5 h-5"/>,
                 color: 'blue',
                 groups: [{
                     name: 'Main Borrower',
                     prefix: 'main',
                     columns: mainColumns,
-                    icon: <Users className="w-4 h-4" />,
+                    icon: <Users className="w-4 h-4"/>,
                     color: 'blue'
                 }]
             }
@@ -141,7 +147,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             tabGroups.push({
                 key: 'guarantors',
                 name: 'Guarantors',
-                icon: <Shield className="w-5 h-5" />,
+                icon: <Shield className="w-5 h-5"/>,
                 color: 'green',
                 groups: guarantorGroups
             });
@@ -151,7 +157,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             tabGroups.push({
                 key: 'joints',
                 name: 'Joint Borrowers',
-                icon: <Users className="w-5 h-5" />,
+                icon: <Users className="w-5 h-5"/>,
                 color: 'purple',
                 groups: jointGroups
             });
@@ -161,7 +167,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             tabGroups.push({
                 key: 'assets',
                 name: 'Assets',
-                icon: <Home className="w-5 h-5" />,
+                icon: <Home className="w-5 h-5"/>,
                 color: 'orange',
                 groups: assetGroups
             });
@@ -171,6 +177,8 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
     };
 
     const table = destinationTables[0];
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
     const filteredColumns = getFilteredColumns(table);
     const tabGroups = groupColumns(filteredColumns);
 
@@ -185,7 +193,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             {/* Search Bar */}
             <div className="bg-white p-4 border-b border-gray-200">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"/>
                     <input
                         type="text"
                         placeholder="Search all columns across all groups..."
@@ -198,7 +206,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                             onClick={() => setGlobalFilter('')}
                             className="absolute right-3 top-1/2 transform -translate-y-1/2"
                         >
-                            <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                            <X className="h-4 w-4 text-gray-400 hover:text-gray-600"/>
                         </button>
                     )}
                 </div>
@@ -289,25 +297,28 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                 >
                                     {/* Active indicator */}
                                     {activeSubTab[activeMainTab] === group.prefix && (
-                                        <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 rounded-full ${
-                                            activeTabGroup.color === 'blue' ? 'bg-blue-500' :
-                                                activeTabGroup.color === 'green' ? 'bg-green-500' :
-                                                    activeTabGroup.color === 'purple' ? 'bg-purple-500' :
-                                                        activeTabGroup.color === 'orange' ? 'bg-orange-500' :
-                                                            'bg-gray-500'
-                                        } animate-pulse`} />
+                                        <div
+                                            className={`absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 rounded-full ${
+                                                activeTabGroup.color === 'blue' ? 'bg-blue-500' :
+                                                    activeTabGroup.color === 'green' ? 'bg-green-500' :
+                                                        activeTabGroup.color === 'purple' ? 'bg-purple-500' :
+                                                            activeTabGroup.color === 'orange' ? 'bg-orange-500' :
+                                                                'bg-gray-500'
+                                            } animate-pulse`}/>
                                     )}
 
                                     {/* Mapping indicator - small dot for non-active tabs */}
                                     {groupHasMappings && activeSubTab[activeMainTab] !== group.prefix && (
-                                        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-                                            activeTabGroup.color === 'blue' ? 'bg-blue-500' :
-                                                activeTabGroup.color === 'green' ? 'bg-green-500' :
-                                                    activeTabGroup.color === 'purple' ? 'bg-purple-500' :
-                                                        activeTabGroup.color === 'orange' ? 'bg-orange-500' :
-                                                            'bg-gray-500'
-                                        }`}>
-                                            <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                                        <div
+                                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                                                activeTabGroup.color === 'blue' ? 'bg-blue-500' :
+                                                    activeTabGroup.color === 'green' ? 'bg-green-500' :
+                                                        activeTabGroup.color === 'purple' ? 'bg-purple-500' :
+                                                            activeTabGroup.color === 'orange' ? 'bg-orange-500' :
+                                                                'bg-gray-500'
+                                            }`}>
+                                            <div
+                                                className="w-full h-full bg-white rounded-full flex items-center justify-center">
                                                 <div className="w-1 h-1 bg-current rounded-full"></div>
                                             </div>
                                         </div>
@@ -336,7 +347,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                 'bg-gray-600 text-white shadow-sm'
                                                 : 'bg-white bg-opacity-70 text-gray-600'
                                     }`}>
-                                        {group.columns.length}
+                                        {/*{group.columns.length}*/}
                                     </span>
                                 </button>
                             );
@@ -381,13 +392,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                 );
 
                                 // Clean column display name
-                                let displayColumn = column;
-                                const match = column.match(/^(guarantor|joint|asset)_\d+_(.+)$/);
-                                if (match) {
-                                    const type = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-                                    const fieldName = match[2].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                                    displayColumn = `${type} ${fieldName}`;
-                                }
+                                const displayColumn = formatColumnName(column);
 
                                 return (
                                     <div
@@ -410,7 +415,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                             activeGroup.color === 'purple' ? 'w-4 h-4 text-purple-600' :
                                                                 activeGroup.color === 'orange' ? 'w-4 h-4 text-orange-600' :
                                                                     'w-4 h-4 text-gray-600'
-                                                } />
+                                                }/>
                                             </div>
                                             {columnMappings.length > 0 && (
                                                 <div className="bg-green-100 px-2 py-1 rounded-full">
@@ -425,9 +430,9 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                             <h4 className="font-semibold text-gray-900 text-sm mb-1" title={column}>
                                                 {displayColumn}
                                             </h4>
-                                            <p className="text-xs text-gray-500 font-mono truncate" title={column}>
-                                                {column}
-                                            </p>
+                                            {/*<p className="text-xs text-gray-500 font-mono truncate" title={column}>*/}
+                                            {/*    {column}*/}
+                                            {/*</p>*/}
                                         </div>
 
                                         {/* Show mappings if any */}
@@ -449,7 +454,8 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                             activeGroup.color === 'orange' ? 'flex-1 min-w-0 text-orange-700' :
                                                                                 'flex-1 min-w-0 text-gray-700'
                                                             }>
-                                                                <div className="font-medium truncate mb-1">{mapping.source.value}</div>
+                                                                <div
+                                                                    className="font-medium truncate mb-1">{mapping.source.value}</div>
                                                                 <div className={
                                                                     activeGroup.color === 'blue' ? 'text-blue-500 text-[10px] truncate' :
                                                                         activeGroup.color === 'green' ? 'text-green-500 text-[10px] truncate' :
@@ -465,7 +471,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                 className="text-red-400 hover:text-red-600 ml-2 flex-shrink-0"
                                                                 title="Remove mapping"
                                                             >
-                                                                <Trash2 className="w-3 h-3" />
+                                                                <Trash2 className="w-3 h-3"/>
                                                             </button>
                                                         </div>
                                                     </div>

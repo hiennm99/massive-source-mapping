@@ -2,11 +2,14 @@
 import React from "react";
 
 export interface SourceColumn {
-    path: string;
-    value: string;
-    type: 'column' | 'value' | 'property';
-    file?: string;
-    sheet?: string;
+    file: string;
+    sheet: string;
+    value: string; // column name
+}
+
+export interface DestinationColumn {
+    table: string;
+    column: string;
 }
 
 export interface SheetData {
@@ -22,7 +25,6 @@ export interface FileData {
 }
 
 export interface DestinationTable {
-    id: string;
     name: string;
     columns: string[];
 }
@@ -30,10 +32,7 @@ export interface DestinationTable {
 export interface ColumnMapping {
     id: number;
     source: SourceColumn;
-    destination: {
-        table: string;
-        column: string;
-    };
+    destination: DestinationColumn;
 }
 
 export interface ColumnGroup {
@@ -63,4 +62,55 @@ export interface MappingData {
     name: string;
     mappings: ColumnMapping[];
     destination_tables: DestinationTable[];
+}
+
+export interface MappingExportResponse {
+    id: string;
+    name: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
+    created_at: string;
+    updated_at: string;
+}
+
+export interface MappingExport {
+    id: string;
+    name: string;
+    created_at: string;
+    updated_at: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
+}
+
+export interface Stats {
+    total_mappings: number;
+    timestamp: string;
+}
+
+export interface MappingSource {
+    file: string;
+    sheet: string;
+    column: string;
+}
+
+export interface MappingExportData {
+    name: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
+}
+
+export interface ApiError {
+    detail: string | unknown[];
+}
+
+export interface ExportFormat {
+    id: string;
+    name: string;
+    created_at: string;
+    mappings: {
+        [key: string]: MappingSource | Array<{[key: string]: MappingSource}>;
+    };
 }
