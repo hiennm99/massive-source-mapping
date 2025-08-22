@@ -1,4 +1,4 @@
-// components/DestinationTablesPanel.tsx - Main tabs with sub-tabs layout
+// components/DestinationTablesPanel.tsx - Fixed tab switching when searching
 import React, {useState} from 'react';
 import {Trash2, Columns, Search, X, Users, Shield, Home} from 'lucide-react';
 import {useDestinationTables} from '../hooks/useDestinationTables';
@@ -39,12 +39,12 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                                   onDragOver,
                                                                                   onDrop,
                                                                                   onRemoveMapping,
+                                                                                  globalFilter,
+                                                                                  onGlobalFilterChange,
                                                                                   getFilteredColumns
                                                                               }) => {
     const {
         destinationTables,
-        globalFilter,
-        setGlobalFilter,
         config,
         addGuarantorSlot,
         addJointSlot,
@@ -53,6 +53,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
 
     const [activeMainTab, setActiveMainTab] = useState<string>('general');
     const [activeSubTab, setActiveSubTab] = useState<{ [key: string]: string }>({});
+    const [isUserManuallySelectedTab, setIsUserManuallySelectedTab] = useState<boolean>(false);
 
     const setActiveSubTabForMain = (mainTab: string, subTab: string) => {
         setActiveSubTab(prev => ({
@@ -182,11 +183,110 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
     const filteredColumns = getFilteredColumns(table);
     const tabGroups = groupColumns(filteredColumns);
 
+    // Auto-switch tab based on search - ONLY if user hasn't manually selected
+    React.useEffect(() => {
+        if (globalFilter.trim() && !isUserManuallySelectedTab) {
+            // Find which tab has the most matching results
+            let bestTab = activeMainTab;
+            let maxMatches = 0;
+
+            tabGroups.forEach(tabGroup => {
+                const tabMatches = tabGroup.groups.reduce((count, group) => {
+                    return count + group.columns.filter(col => filteredColumns.includes(col)).length;
+                }, 0);
+
+                if (tabMatches > maxMatches) {
+                    maxMatches = tabMatches;
+                    bestTab = tabGroup.key;
+                }
+            });
+
+            // Switch to the tab with most matches if it's different and has results
+            if (bestTab !== activeMainTab && maxMatches > 0) {
+                setActiveMainTab(bestTab);
+                // Also set the first sub-tab if needed
+                const targetTabGroup = tabGroups.find(tg => tg.key === bestTab);
+                if (targetTabGroup && targetTabGroup.groups.length > 0 && bestTab !== 'general') {
+                    setActiveSubTabForMain(bestTab, targetTabGroup.groups[0].prefix);
+                }
+            }
+        }
+
+        // Reset manual selection flag when search is cleared
+        if (!globalFilter.trim()) {
+            setIsUserManuallySelectedTab(false);
+        }
+    }, [globalFilter, filteredColumns, isUserManuallySelectedTab]);
+
+    // Manual tab click handler
+    const handleTabClick = (tabKey: string) => {
+        setActiveMainTab(tabKey);
+        setIsUserManuallySelectedTab(true); // Mark as manually selected
+        // Set default sub-tab when switching manually
+        const targetTabGroup = tabGroups.find(tg => tg.key === tabKey);
+        if (targetTabGroup && targetTabGroup.groups.length > 0 && tabKey !== 'general') {
+            const currentSubTab = activeSubTab[tabKey];
+            // Only set first sub-tab if no sub-tab is currently selected for this main tab
+            if (!currentSubTab) {
+                setActiveSubTabForMain(tabKey, targetTabGroup.groups[0].prefix);
+            }
+        }
+    };
+
     const activeTabGroup = tabGroups.find(tg => tg.key === activeMainTab);
-    const activeGroup = activeTabGroup?.groups.find(g => {
-        if (activeMainTab === 'general') return g.prefix === 'main';
-        return g.prefix === activeSubTab[activeMainTab];
-    }) || activeTabGroup?.groups[0];
+
+    // When searching, show results organized by subtabs, not all mixed together
+    let activeGroup: ColumnGroup | undefined;
+    let columnsToShow: string[] = [];
+
+    if (globalFilter.trim()) {
+        // When filtering, show results but maintain subtab structure
+        if (activeTabGroup) {
+            if (activeMainTab === 'general') {
+                // For general tab, show all matching main columns
+                const mainGroup = activeTabGroup.groups.find(g => g.prefix === 'main');
+                if (mainGroup) {
+                    columnsToShow = mainGroup.columns.filter(col => filteredColumns.includes(col));
+                    activeGroup = {
+                        name: `Main Borrower Results`,
+                        prefix: 'main_results',
+                        columns: columnsToShow,
+                        icon: mainGroup.icon,
+                        color: mainGroup.color
+                    };
+                }
+            } else {
+                // For other tabs, show current subtab's matching columns
+                const currentSubTab = activeSubTab[activeMainTab];
+                let targetGroup = activeTabGroup.groups.find(g => g.prefix === currentSubTab);
+
+                // If no subtab selected, use first group
+                if (!targetGroup && activeTabGroup.groups.length > 0) {
+                    targetGroup = activeTabGroup.groups[0];
+                    setActiveSubTabForMain(activeMainTab, targetGroup.prefix);
+                }
+
+                if (targetGroup) {
+                    columnsToShow = targetGroup.columns.filter(col => filteredColumns.includes(col));
+                    activeGroup = {
+                        name: `${targetGroup.name} Results`,
+                        prefix: `${targetGroup.prefix}_results`,
+                        columns: columnsToShow,
+                        icon: targetGroup.icon,
+                        color: targetGroup.color
+                    };
+                }
+            }
+        }
+    } else {
+        // Normal behavior when not filtering
+        activeGroup = activeTabGroup?.groups.find(g => {
+            if (activeMainTab === 'general') return g.prefix === 'main';
+            return g.prefix === activeSubTab[activeMainTab];
+        }) || activeTabGroup?.groups[0];
+
+        columnsToShow = activeGroup?.columns || [];
+    }
 
     return (
         <div className="w-full flex flex-col h-screen bg-gray-100">
@@ -198,12 +298,12 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                         type="text"
                         placeholder="Search all columns across all groups..."
                         value={globalFilter}
-                        onChange={(e) => setGlobalFilter(e.target.value)}
+                        onChange={(e) => onGlobalFilterChange(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
                     />
                     {globalFilter && (
                         <button
-                            onClick={() => setGlobalFilter('')}
+                            onClick={() => onGlobalFilterChange('')}
                             className="absolute right-3 top-1/2 transform -translate-y-1/2"
                         >
                             <X className="h-4 w-4 text-gray-400 hover:text-gray-600"/>
@@ -216,11 +316,17 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             <div className="bg-white border-b border-gray-200">
                 <div className="flex">
                     {tabGroups.map((tabGroup) => {
+                        // Count matching columns in this tab
+                        const matchingCount = globalFilter.trim() ?
+                            tabGroup.groups.reduce((count, group) => {
+                                return count + group.columns.filter(col => filteredColumns.includes(col)).length;
+                            }, 0) : 0;
+
                         return (
                             <button
                                 key={tabGroup.key}
-                                onClick={() => setActiveMainTab(tabGroup.key)}
-                                className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                                onClick={() => handleTabClick(tabGroup.key)} // Use handler instead of direct setActiveMainTab
+                                className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 relative ${
                                     activeMainTab === tabGroup.key
                                         ? tabGroup.color === 'blue' ? 'border-blue-500 text-blue-600 bg-blue-50' :
                                             tabGroup.color === 'green' ? 'border-green-500 text-green-600 bg-green-50' :
@@ -247,13 +353,31 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                         {tabGroup.groups.length}
                                     </span>
                                 )}
+
+                                {/* Show search result count when filtering */}
+                                {globalFilter.trim() && matchingCount > 0 && (
+                                    <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium ${
+                                        tabGroup.color === 'blue' ? 'bg-blue-500 text-white' :
+                                            tabGroup.color === 'green' ? 'bg-green-500 text-white' :
+                                                tabGroup.color === 'purple' ? 'bg-purple-500 text-white' :
+                                                    tabGroup.color === 'orange' ? 'bg-orange-500 text-white' :
+                                                        'bg-gray-500 text-white'
+                                    }`}>
+                                        {matchingCount}
+                                    </span>
+                                )}
+
+                                {/* Highlight tab with search results */}
+                                {globalFilter.trim() && matchingCount > 0 && activeMainTab !== tabGroup.key && (
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
+                                )}
                             </button>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Sub-tabs Navigation */}
+            {/* Sub-tabs Navigation - Show even when searching to maintain context */}
             {activeTabGroup && activeTabGroup.groups.length >= 1 && activeTabGroup.key !== 'general' && (
                 <div className={
                     activeTabGroup.color === 'blue' ? 'bg-blue-50 border-b border-blue-200' :
@@ -270,6 +394,10 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                     m.destination.table === table.name && m.destination.column === column
                                 )
                             );
+
+                            // Count search results for this subtab
+                            const searchResultsCount = globalFilter.trim() ?
+                                group.columns.filter(col => filteredColumns.includes(col)).length : 0;
 
                             return (
                                 <button
@@ -331,24 +459,39 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                     </div>
                                     <span className="whitespace-nowrap">{group.name}</span>
 
-                                    {/* Column count badge */}
-                                    <span className={`ml-2 px-2 py-1 text-xs rounded-full transition-all duration-300 ${
-                                        activeSubTab[activeMainTab] === group.prefix
-                                            ? activeTabGroup.color === 'blue' ? 'bg-blue-500 text-white shadow-sm' :
-                                                activeTabGroup.color === 'green' ? 'bg-green-500 text-white shadow-sm' :
-                                                    activeTabGroup.color === 'purple' ? 'bg-purple-500 text-white shadow-sm' :
-                                                        activeTabGroup.color === 'orange' ? 'bg-orange-500 text-white shadow-sm' :
-                                                            'bg-gray-500 text-white shadow-sm'
-                                            : groupHasMappings
-                                                ? activeTabGroup.color === 'blue' ? 'bg-blue-600 text-white shadow-sm' :
-                                                    activeTabGroup.color === 'green' ? 'bg-green-600 text-white shadow-sm' :
-                                                        activeTabGroup.color === 'purple' ? 'bg-purple-600 text-white shadow-sm' :
-                                                            activeTabGroup.color === 'orange' ? 'bg-orange-600 text-white shadow-sm' :
-                                                                'bg-gray-600 text-white shadow-sm'
-                                                : 'bg-white bg-opacity-70 text-gray-600'
-                                    }`}>
-                                        {/*{group.columns.length}*/}
-                                    </span>
+                                    {/* Show search results count when filtering */}
+                                    {globalFilter.trim() && searchResultsCount > 0 ? (
+                                        <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium transition-all duration-300 ${
+                                            activeSubTab[activeMainTab] === group.prefix
+                                                ? activeTabGroup.color === 'blue' ? 'bg-blue-500 text-white shadow-sm' :
+                                                    activeTabGroup.color === 'green' ? 'bg-green-500 text-white shadow-sm' :
+                                                        activeTabGroup.color === 'purple' ? 'bg-purple-500 text-white shadow-sm' :
+                                                            activeTabGroup.color === 'orange' ? 'bg-orange-500 text-white shadow-sm' :
+                                                                'bg-gray-500 text-white shadow-sm'
+                                                : 'bg-yellow-500 text-white shadow-sm'
+                                        }`}>
+                                            {searchResultsCount}
+                                        </span>
+                                    ) : (
+                                        /* Column count badge for normal mode */
+                                        <span className={`ml-2 px-2 py-1 text-xs rounded-full transition-all duration-300 ${
+                                            activeSubTab[activeMainTab] === group.prefix
+                                                ? activeTabGroup.color === 'blue' ? 'bg-blue-500 text-white shadow-sm' :
+                                                    activeTabGroup.color === 'green' ? 'bg-green-500 text-white shadow-sm' :
+                                                        activeTabGroup.color === 'purple' ? 'bg-purple-500 text-white shadow-sm' :
+                                                            activeTabGroup.color === 'orange' ? 'bg-orange-500 text-white shadow-sm' :
+                                                                'bg-gray-500 text-white shadow-sm'
+                                                : groupHasMappings
+                                                    ? activeTabGroup.color === 'blue' ? 'bg-blue-600 text-white shadow-sm' :
+                                                        activeTabGroup.color === 'green' ? 'bg-green-600 text-white shadow-sm' :
+                                                            activeTabGroup.color === 'purple' ? 'bg-purple-600 text-white shadow-sm' :
+                                                                activeTabGroup.color === 'orange' ? 'bg-orange-600 text-white shadow-sm' :
+                                                                    'bg-gray-600 text-white shadow-sm'
+                                                    : 'bg-white bg-opacity-70 text-gray-600'
+                                        }`}>
+                                            {/*{group.columns.length}*/}
+                                        </span>
+                                    )}
                                 </button>
                             );
                         })}
@@ -384,9 +527,21 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             <div className="flex-1 bg-gray-50 p-6 overflow-y-auto">
                 {activeGroup && (
                     <div>
+                        {/* Show search info when filtering */}
+                        {globalFilter.trim() && (
+                            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                    <Search className="w-4 h-4 text-blue-600"/>
+                                    <span className="text-sm text-blue-700">
+                                        Showing {columnsToShow.length} results for "{globalFilter}" in {activeGroup?.name || activeTabGroup?.name}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Columns Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {activeGroup.columns.map((column, index) => {
+                            {columnsToShow.map((column, index) => {
                                 const columnMappings = mappings.filter(m =>
                                     m.destination.table === table.name && m.destination.column === column
                                 );
@@ -430,9 +585,14 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                             <h4 className="font-semibold text-gray-900 text-sm mb-1" title={column}>
                                                 {displayColumn}
                                             </h4>
-                                            {/*<p className="text-xs text-gray-500 font-mono truncate" title={column}>*/}
-                                            {/*    {column}*/}
-                                            {/*</p>*/}
+                                            {/* Show which group this column belongs to when searching */}
+                                            {globalFilter.trim() && (
+                                                <p className="text-xs text-gray-500 mb-1">
+                                                    {column.startsWith('guarantor_') ? 'Guarantor' :
+                                                        column.startsWith('joint_') ? 'Joint Borrower' :
+                                                            column.startsWith('asset_') ? 'Asset' : 'Main Borrower'}
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Show mappings if any */}

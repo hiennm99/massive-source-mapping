@@ -12,20 +12,20 @@ export const useDestinationTables = () => {
     // Generate columns dynamically
     const generateTable = useCallback((config: TableConfig): DestinationTable => {
         const baseColumns = [
-            'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
+            'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
             'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
-            'ndg', 'gbv', 'dbt_date', 'originator',
+            'ndg', 'gbv', 'dbt_date', 'originator', 'credit_type',
             'phone_number', 'email', 'bank_abi', 'bank_cab', 'bank_account'
         ];
 
         const guarantorFields = [
-            'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
+            'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
             'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
             'ndg', 'phone_number', 'email', 'type', 'limit'
         ];
 
         const jointFields = [
-            'fiscal_code', 'name', 'gender', 'dob', 'pob', 'note',
+            'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
             'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
             'ndg', 'phone_number', 'email'
         ];

@@ -17,8 +17,10 @@ import { LoadingOverlay } from '../components/LoadingOverlay';
 import { ToastNotification } from '../components/ToastNotification';
 import { PanelHeader } from '../components/PanelHeader';
 import type { FileData } from '../types';
+import {useNavigate} from "react-router";
 
 const JsonMapperVisualizer: React.FC = () => {
+    const navigate = useNavigate();
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-expect-error
     const [jsonData] = useState<FileData[]>(ScannedSchema);
@@ -79,8 +81,6 @@ const JsonMapperVisualizer: React.FC = () => {
                 return;
             }
 
-            console.log('Starting export with mappings:', mappings.length);
-
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-expect-error
             const result = await exportMappings(mappings, destinationTables);
@@ -91,7 +91,8 @@ const JsonMapperVisualizer: React.FC = () => {
                 setTimeout(() => {
                     setMappings([]);
                     console.log('Mappings cleared');
-                }, 3000);
+                    navigate("/")
+                }, 1000);
             }
         } catch (error) {
             console.error('Save failed:', error);
