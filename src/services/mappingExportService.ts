@@ -202,9 +202,7 @@ export const saveMappingExport = async (data: MappingExportData): Promise<Mappin
                             errorMessage = errorJson.detail;
                         } else if (Array.isArray(errorJson.detail)) {
                             // FastAPI validation errors format
-                            const errorDetails = errorJson.detail.map((err: any) =>
-                                `${err.loc?.join('.')} - ${err.msg}`
-                            ).join('; ');
+                            const errorDetails = errorJson.detail.map((err: { string: string }) => err.string);
                             errorMessage = `Validation error: ${errorDetails}`;
                         } else {
                             errorMessage = JSON.stringify(errorJson.detail);
@@ -389,7 +387,7 @@ export const updateMappingExport = async (
         }
 
         // Only include non-empty fields in the update
-        const payload: any = {};
+        const payload: { [key: string]: unknown } = {};
 
         if (data.name && data.name.trim()) {
             payload.name = data.name.trim();

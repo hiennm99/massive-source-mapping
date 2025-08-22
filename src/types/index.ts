@@ -1,4 +1,4 @@
-import type {MappingSource} from "../services/mappingExportService.tsx";
+import type {MappingSource} from "../services/mappingExportService.ts";
 
 export interface ColumnGroup {
     name: string;

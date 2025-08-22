@@ -9,7 +9,7 @@ import {
     deleteMappingExport,
     searchMappingExports,
     getMappingStats
-} from '../services/mappingExportService.tsx';
+} from '../services/mappingExportService.ts';
 import {useNavigate} from "react-router";
 import type { MappingExportResponse, MappingExport, Stats} from "../types";
 

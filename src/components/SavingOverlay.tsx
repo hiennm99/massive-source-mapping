@@ -1,4 +1,4 @@
-// components/LoadingOverlay.tsx - Loading and export status overlay
+// components/SavingOverlay.tsx - Loading and export status overlay
 import React from 'react';
 
 interface LoadingOverlayProps {
@@ -6,7 +6,7 @@ interface LoadingOverlayProps {
     message?: string;
 }
 
-export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
+export const SavingOverlay: React.FC<LoadingOverlayProps> = ({
                                                                   isVisible,
                                                                   message = "Please wait while we export your data..."
                                                               }) => {

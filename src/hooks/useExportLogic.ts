@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ColumnMapping } from '../types';
-import { saveMappingExport } from '../services/mappingExportService';
+import { saveMappingExport } from '../services/mappingExportService.ts';
 import { testMappingFormat } from '../utils/formatDebugHelper';
 
 interface ServiceMappingData {

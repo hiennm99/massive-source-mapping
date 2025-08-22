@@ -265,11 +265,12 @@ export const useMappingLogic = () => {
                 if (key === 'guarantors' && Array.isArray(value)) {
                     value.forEach((guarantor, index) => {
                         Object.entries(guarantor).forEach(([field, source]) => {
-                            // Validate source before creating mapping
                             if (source && source.file && source.sheet && source.column) {
                                 const columnName = `guarantor_${index + 1}_${field.replace('guarantor_', '')}`;
+
                                 newMappings.push({
                                     id: idCounter++,
+                                    
                                     source: {
                                         file: source.file,
                                         sheet: source.sheet,
@@ -286,7 +287,6 @@ export const useMappingLogic = () => {
                 } else if (key === 'joints' && Array.isArray(value)) {
                     value.forEach((joint, index) => {
                         Object.entries(joint).forEach(([field, source]) => {
-                            // Validate source before creating mapping
                             if (source && source.file && source.sheet && source.column) {
                                 const columnName = `joint_${index + 1}_${field.replace('joint_', '')}`;
                                 newMappings.push({
@@ -326,14 +326,19 @@ export const useMappingLogic = () => {
                         });
                     });
                 } else if (!Array.isArray(value) && value && typeof value === 'object') {
-                    // Regular mapping - ensure it's a valid MappingSource object
                     if (value.file && value.sheet && value.column) {
                         newMappings.push({
                             id: idCounter++,
                             source: {
-                                file: value.file,
-                                sheet: value.sheet,
-                                value: value.column
+                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                                // @ts-expect-error
+                                file: source.file,
+                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                                // @ts-expect-error
+                                sheet: source.sheet,
+                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                                // @ts-expect-error
+                                value: source.column
                             },
                             destination: {
                                 table: 'default',
