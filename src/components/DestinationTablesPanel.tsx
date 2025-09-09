@@ -394,7 +394,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             {/* Sub-tabs Navigation */}
             {activeTabGroup && activeTabGroup.groups.length >= 1 && activeTabGroup.key !== 'general' && (
                 <div className={
-                    activeTabGroup.color === 'blue' ? 'bg-blue-50 border-b border-blue-200' :
+                    activeTabGroup.color === 'blue' ? 'bg-blue-50 border-b border-blue-200 p-2' :
                         activeTabGroup.color === 'green' ? 'bg-green-50 border-b border-green-200' :
                             activeTabGroup.color === 'purple' ? 'bg-purple-50 border-b border-purple-200' :
                                 activeTabGroup.color === 'orange' ? 'bg-orange-50 border-b border-orange-200' :
@@ -417,13 +417,13 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                     onClick={() => setActiveSubTabForMain(activeMainTab, group.prefix)}
                                     className={`relative flex-shrink-0 flex items-center px-4 py-3 mx-1 text-sm font-medium transition-all duration-300 transform ${
                                         activeSubTab[activeMainTab] === group.prefix
-                                            ? activeTabGroup.color === 'blue' ? 'text-blue-700 bg-white shadow-md border-2 border-blue-300 rounded-lg scale-105 font-semibold' :
-                                                activeTabGroup.color === 'green' ? 'text-green-700 bg-white shadow-md border-2 border-green-300 rounded-lg scale-105 font-semibold' :
-                                                    activeTabGroup.color === 'purple' ? 'text-purple-700 bg-white shadow-md border-2 border-purple-300 rounded-lg scale-105 font-semibold' :
-                                                        activeTabGroup.color === 'orange' ? 'text-orange-700 bg-white shadow-md border-2 border-orange-300 rounded-lg scale-105 font-semibold' :
-                                                            activeTabGroup.color === 'indigo' ? 'text-indigo-700 bg-white shadow-md border-2 border-indigo-300 rounded-lg scale-105 font-semibold' : // Thêm indigo color
+                                            ? activeTabGroup.color === 'blue' ? 'text-blue-700 bg-white shadow-md border-2 border-blue-300 rounded-2xl scale-105 font-semibold m-2' :
+                                                activeTabGroup.color === 'green' ? 'text-green-700 bg-white shadow-md border-2 border-green-300 rounded-2xl scale-105 font-semibold m-2' :
+                                                    activeTabGroup.color === 'purple' ? 'text-purple-700 bg-white shadow-md border-2 border-purple-300 rounded-2xl scale-105 font-semibold m-2' :
+                                                        activeTabGroup.color === 'orange' ? 'text-orange-700 bg-white shadow-md border-2 border-orange-300 rounded-2xl scale-105 font-semibold m-2' :
+                                                            activeTabGroup.color === 'indigo' ? 'text-indigo-700 bg-white shadow-md border-2 border-indigo-300 rounded-2xl scale-105 font-semibold m-2' : // Thêm indigo color
                                                                 'text-gray-700 bg-white shadow-md border-2 border-gray-300 rounded-lg scale-105 font-semibold'
-                                            : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100 hover:shadow-sm hover:scale-102 rounded-lg border-2 border-transparent'
+                                            : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100 hover:shadow-sm hover:scale-102 rounded-2xl border-2 border-transparent'
                                     }`}
                                 >
                                     <div className={`mr-2 transition-transform duration-300 ${
@@ -484,7 +484,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                 (activeTabGroup.key === 'assets' && config.maxAssets >= 10) ||
                                 (activeTabGroup.key === 'jobs' && config.maxJobs >= 10) // Thêm job limit
                             }
-                            className={`flex-shrink-0 flex items-center justify-center w-10 h-10 mx-1 my-2 text-sm font-medium rounded-full border-2 border-dashed transition-all duration-300 ${
+                            className={`flex-shrink-0 flex items-center justify-center w-10 h-10 mx-1 my-2 text-md font-medium rounded-full border-2 border-dashed transition-all duration-300 ${
                                 activeTabGroup.color === 'indigo' ? 'border-indigo-300 text-indigo-500 hover:bg-indigo-100 hover:border-indigo-400 hover:text-indigo-600' :
                                     'border-blue-300 text-blue-500 hover:bg-blue-100 hover:border-blue-400 hover:text-blue-600'
                             } disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105`}

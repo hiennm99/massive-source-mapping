@@ -38,9 +38,10 @@ export const useDestinationTables = () => {
         ];
 
         const jobFields = [
-            'job_reference', 'pension_category', 'job_name', 'street_type',
-            'legal_address', 'postcode', 'region', 'province', 'city', 'address',
-            'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
+            'ref', 'pension_category', 'name', 'start_date', 'note_date', 'income_range', 'monthly_income', 'work_activity_notes',
+            'legal_street_type', 'legal_street', 'legal_street_number', 'legal_at', 'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
+            'operation_street_type', 'operation_street', 'operation_street_number', 'operation_at', 'operation_postcode', 'operation_province',
+            'employer_phone', 'employer_fax'
         ];
 
         const columns = [...baseColumns];
