@@ -17,12 +17,12 @@ export interface TabGroup {
     groups: ColumnGroup[];
 }
 
-export interface DestinationTablesPanelProps {
-    mappings: ColumnMapping[];
-    onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-    onDrop: (e: React.DragEvent<HTMLDivElement>, destinationTable: DestinationTable, destinationColumn: string) => void;
-    onRemoveMapping: (mappingId: number) => void;
-}
+// export interface DestinationTablesPanelProps {
+//     mappings: ColumnMapping[];
+//     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+//     onDrop: (e: React.DragEvent<HTMLDivElement>, destinationTable: DestinationTable, destinationColumn: string) => void;
+//     onRemoveMapping: (mappingId: number) => void;
+// }
 
 // Existing types from your app
 export interface ColumnMapping {
