@@ -1,4 +1,4 @@
-// src/hooks/useDestinationTables.ts - Fixed version
+// src/hooks/useDestinationTables.ts - Fixed version with return values
 import { useState, useCallback } from 'react';
 import type { DestinationTable, TableConfig } from '../types';
 
@@ -6,7 +6,8 @@ export const useDestinationTables = () => {
     const [config, setConfig] = useState<TableConfig>({
         maxGuarantors: 3,
         maxJointBorrowers: 3,
-        maxAssets: 3
+        maxAssets: 3,
+        maxJobs: 1
     });
 
     // Generate columns dynamically
@@ -36,6 +37,12 @@ export const useDestinationTables = () => {
             'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
         ];
 
+        const jobFields = [
+            'job_reference', 'pension_category', 'job_name', 'street_type',
+            'legal_address', 'postcode', 'region', 'province', 'city', 'address',
+            'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
+        ];
+
         const columns = [...baseColumns];
 
         // Generate guarantor columns
@@ -56,6 +63,13 @@ export const useDestinationTables = () => {
         for (let i = 1; i <= config.maxAssets; i++) {
             assetFields.forEach(field => {
                 columns.push(`asset_${i}_${field}`);
+            });
+        }
+
+        // Generate job columns
+        for (let i = 1; i <= config.maxJobs; i++) {
+            jobFields.forEach(field => {
+                columns.push(`job_${i}_${field}`);
             });
         }
 
@@ -89,8 +103,11 @@ export const useDestinationTables = () => {
 
     const addGuarantorSlot = useCallback(() => {
         if (config.maxGuarantors < 10) {
-            updateConfig({ maxGuarantors: config.maxGuarantors + 1 });
+            const newSlotNumber = config.maxGuarantors + 1;
+            updateConfig({ maxGuarantors: newSlotNumber });
+            return newSlotNumber;
         }
+        return null;
     }, [config.maxGuarantors, updateConfig]);
 
     const removeGuarantorSlot = useCallback(() => {
@@ -101,8 +118,11 @@ export const useDestinationTables = () => {
 
     const addJointSlot = useCallback(() => {
         if (config.maxJointBorrowers < 5) {
-            updateConfig({ maxJointBorrowers: config.maxJointBorrowers + 1 });
+            const newSlotNumber = config.maxJointBorrowers + 1;
+            updateConfig({ maxJointBorrowers: newSlotNumber });
+            return newSlotNumber;
         }
+        return null;
     }, [config.maxJointBorrowers, updateConfig]);
 
     const removeJointSlot = useCallback(() => {
@@ -113,8 +133,11 @@ export const useDestinationTables = () => {
 
     const addAssetSlot = useCallback(() => {
         if (config.maxAssets < 20) {
-            updateConfig({ maxAssets: config.maxAssets + 1 });
+            const newSlotNumber = config.maxAssets + 1;
+            updateConfig({ maxAssets: newSlotNumber });
+            return newSlotNumber;
         }
+        return null;
     }, [config.maxAssets, updateConfig]);
 
     const removeAssetSlot = useCallback(() => {
@@ -122,6 +145,21 @@ export const useDestinationTables = () => {
             updateConfig({ maxAssets: config.maxAssets - 1 });
         }
     }, [config.maxAssets, updateConfig]);
+
+    const addJobSlot = useCallback(() => {
+        if (config.maxJobs < 20) {
+            const newSlotNumber = config.maxJobs + 1;
+            updateConfig({ maxJobs: newSlotNumber });
+            return newSlotNumber;
+        }
+        return null;
+    }, [config.maxJobs, updateConfig]);
+
+    const removeJobSlot = useCallback(() => {
+        if (config.maxJobs > 0) {
+            updateConfig({ maxJobs: config.maxJobs - 1 });
+        }
+    }, [config.maxJobs, updateConfig]);
 
     return {
         destinationTables,
@@ -134,6 +172,8 @@ export const useDestinationTables = () => {
         addJointSlot,
         removeJointSlot,
         addAssetSlot,
-        removeAssetSlot
+        removeAssetSlot,
+        addJobSlot,
+        removeJobSlot
     };
 };

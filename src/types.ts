@@ -73,6 +73,7 @@ export interface TableConfig {
     maxGuarantors: number;
     maxJointBorrowers: number;
     maxAssets: number;
+    maxJobs: number;
 }
 
 // Export/Import types (unchanged)

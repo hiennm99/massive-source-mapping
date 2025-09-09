@@ -17,11 +17,8 @@ import { ParsingOverlay } from "../components/ParsingOverlay.tsx";
 import { ToastNotification } from '../components/ToastNotification';
 import { PanelHeader } from '../components/PanelHeader';
 import type { FileData } from '../types';
-import { useNavigate } from "react-router";
 
 const JsonMapperVisualizer: React.FC = () => {
-    const navigate = useNavigate();
-
     // Change this to use dynamic data from ExcelUpload
     const [jsonData, setJsonData] = useState<FileData[]>([]); // Start with empty array
     const [isUploadLoading, setIsUploadLoading] = useState(false); // Add upload loading state
@@ -116,7 +113,7 @@ const JsonMapperVisualizer: React.FC = () => {
         } catch (error) {
             console.error('Save failed:', error);
         }
-    }, [exportMappings, mappings, destinationTables, setMappings, navigate]);
+    }, [exportMappings, mappings, destinationTables, setMappings]);
 
     // Helper function to get mapping count for display
     const getMappingCountDisplay = useCallback((): string => {
