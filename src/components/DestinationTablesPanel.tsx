@@ -72,7 +72,8 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             const guarantorMatch = column.match(/^guarantor_(\d+)_(.+)$/);
             const jointMatch = column.match(/^joint_(\d+)_(.+)$/);
             const assetMatch = column.match(/^asset_(\d+)_(.+)$/);
-            const jobMatch = column.match(/^job_(\d+)_(.+)$/); // Thêm job pattern matching
+            const jobMatch = column.match(/^job_(\d+)_(.+)$/);
+            const financeMatch = column.match(/^finance_(\d+)_(.+)$/);
 
             if (guarantorMatch) {
                 const number = parseInt(guarantorMatch[1]);
@@ -134,6 +135,19 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                     };
                 }
                 groups[groupKey].columns.push(column);
+            } else if (financeMatch) {
+                const groupKey = `finance`;
+
+                if (!groups[groupKey]) {
+                    groups[groupKey] = {
+                        name: ``,
+                        prefix: groupKey,
+                        columns: [],
+                        icon: <Briefcase className="w-4 h-4"/>,
+                        color: 'indigo'
+                    };
+                }
+                groups[groupKey].columns.push(column);
             } else {
                 mainColumns.push(column);
             }
@@ -143,7 +157,8 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
         const guarantorGroups = Object.values(groups).filter(g => g.prefix.startsWith('guarantor_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
         const jointGroups = Object.values(groups).filter(g => g.prefix.startsWith('joint_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
         const assetGroups = Object.values(groups).filter(g => g.prefix.startsWith('asset_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
-        const jobGroups = Object.values(groups).filter(g => g.prefix.startsWith('job_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0)); // Lấy job groups
+        const jobGroups = Object.values(groups).filter(g => g.prefix.startsWith('job_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
+        const financeGroups = Object.values(groups).filter(g => g.prefix.startsWith('finance_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
 
         const tabGroups: TabGroup[] = [
             {

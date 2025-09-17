@@ -16,7 +16,8 @@ export const useDestinationTables = () => {
             'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
             'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
             'ndg', 'gbv', 'dbt_date', 'originator', 'credit_type',
-            'phone_number', 'email', 'bank_abi', 'bank_cab', 'bank_account'
+            'phone_number', 'email', 'bank_abi', 'bank_cab', 'bank_account',
+            'is_verified'
         ];
 
         const guarantorFields = [
@@ -38,13 +39,18 @@ export const useDestinationTables = () => {
         ];
 
         const jobFields = [
-            'ref', 'pension_category', 'name', 'start_date', 'note_date', 'income_range', 'monthly_income', 'work_activity_notes',
+            'reference', 'pension_category', 'employer_name', 'start_date', 'note_date', 'income_range', 'monthly_income', 'work_activity_notes',
             'legal_street_type', 'legal_street', 'legal_street_number', 'legal_at', 'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
             'operation_street_type', 'operation_street', 'operation_street_number', 'operation_at', 'operation_postcode', 'operation_province',
             'employer_phone', 'employer_fax'
         ];
 
-        const columns = [...baseColumns];
+        const financeFields = [
+            'ongoing_garnishments', 'garnishment_amount', 'garnishment_due_date', 'garnishment_notes', 'ongoing_assignments', 'assignment_amount', 'assignment_due_date',
+            'assignment_notes', 'fixed_term_contract_expiry_date', 'contract_type', 'legal_at', 'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
+        ];
+
+        const columns = [...baseColumns, ...financeFields];
 
         // Generate guarantor columns
         for (let i = 1; i <= config.maxGuarantors; i++) {
@@ -73,6 +79,11 @@ export const useDestinationTables = () => {
                 columns.push(`job_${i}_${field}`);
             });
         }
+
+        // Generate finance columns
+        financeFields.forEach(field => {
+            columns.push(`finance_${field}`);
+        });
 
         return {
             name: 'main_borrower',
