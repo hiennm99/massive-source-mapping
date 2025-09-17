@@ -1,7 +1,10 @@
-// components/DestinationTablesPanel.tsx - Fixed job groups
-import React, {useState} from 'react';
-import {Trash2, Columns, Search, X, Users, Shield, Home, Briefcase} from 'lucide-react';
+// components/DestinationTablesPanel.tsx - Automated version with CreatedDateInput
+import React, {useState, useEffect} from 'react';
+import _ from 'lodash';
+import {Trash2, Columns, Search, X, Users} from 'lucide-react';
 import {useDestinationTables} from '../hooks/useDestinationTables';
+import { parseColumnName, getGroupByKey } from '../config/columnGroups';
+import { getGroupIcon } from '../utils/iconHelper.tsx'; // Updated import
 import type {DestinationTable, ColumnMapping} from '../types';
 import {formatColumnName} from "../utils/helpers.ts";
 
@@ -30,7 +33,9 @@ interface DestinationTablesPanelProps {
     onRemoveMapping: (mappingId: number) => void,
     globalFilter: string,
     onGlobalFilterChange: (value: string) => void,
-    getFilteredColumns?: (table: DestinationTable) => string[]
+    getFilteredColumns?: (table: DestinationTable) => string[],
+    onCreatedDateChange?: (date: string | null) => void, // New prop for handling created date
+    sourceColumns?: string[] // New prop to check if created_date exists in source data
 }
 
 export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
@@ -40,20 +45,34 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                                   onRemoveMapping,
                                                                                   globalFilter,
                                                                                   onGlobalFilterChange,
-                                                                                  getFilteredColumns
+                                                                                  getFilteredColumns,
+                                                                                  sourceColumns = []
                                                                               }) => {
     const {
         destinationTables,
         config,
-        addGuarantorSlot,
-        addJointSlot,
-        addAssetSlot,
-        addJobSlot, // Thêm addJobSlot function
+        addSlot, // Use generic function
+        getAllGroups
     } = useDestinationTables();
 
-    const [activeMainTab, setActiveMainTab] = useState<string>('general');
+    const [activeMainTab, setActiveMainTab] = useState<string>('essential');
     const [activeSubTab, setActiveSubTab] = useState<{ [key: string]: string }>({});
     const [isUserManuallySelectedTab, setIsUserManuallySelectedTab] = useState<boolean>(false);
+
+    // Check if created_date exists in source data
+    useEffect(() => {
+        const hasCreatedDate = sourceColumns.some(col =>
+            col.toLowerCase().includes('created_date') ||
+            col.toLowerCase().includes('create_date') ||
+            col.toLowerCase().includes('date_created')
+        );
+
+        // Auto-show the input if no created_date found in source
+        if (!hasCreatedDate) {
+            // Don't auto-show, let user decide
+            // setShowCreatedDateInput(true);
+        }
+    }, [sourceColumns]);
 
     const setActiveSubTabForMain = (mainTab: string, subTab: string) => {
         setActiveSubTab(prev => ({
@@ -64,87 +83,32 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
 
     const groupColumns = (columns: string[]): TabGroup[] => {
         const groups: { [key: string]: ColumnGroup } = {};
-
-        // Separate main columns from prefixed columns
         const mainColumns: string[] = [];
 
         columns.forEach(column => {
-            const guarantorMatch = column.match(/^guarantor_(\d+)_(.+)$/);
-            const jointMatch = column.match(/^joint_(\d+)_(.+)$/);
-            const assetMatch = column.match(/^asset_(\d+)_(.+)$/);
-            const jobMatch = column.match(/^job_(\d+)_(.+)$/);
-            const financeMatch = column.match(/^finance_(\d+)_(.+)$/);
+            const parsed = parseColumnName(column);
 
-            if (guarantorMatch) {
-                const number = parseInt(guarantorMatch[1]);
-                const groupKey = `guarantor_${number}`;
+            if (parsed) {
+                const groupDef = getGroupByKey(parsed.groupKey!);
+                if (!groupDef) return;
 
-                if (!groups[groupKey]) {
-                    groups[groupKey] = {
-                        name: `Guarantor ${number}`,
-                        prefix: groupKey,
-                        columns: [],
-                        icon: <Shield className="w-4 h-4"/>,
-                        color: 'green',
-                        instanceNumber: number
-                    };
+                let groupKey: string;
+                if (groupDef.isMultiInstance && parsed.instanceNumber) {
+                    groupKey = `${parsed.prefix}_${parsed.instanceNumber}`;
+                } else {
+                    groupKey = parsed.prefix!;
                 }
-                groups[groupKey].columns.push(column);
-            } else if (jointMatch) {
-                const number = parseInt(jointMatch[1]);
-                const groupKey = `joint_${number}`;
 
                 if (!groups[groupKey]) {
                     groups[groupKey] = {
-                        name: `Joint Borrower ${number}`,
+                        name: groupDef.isMultiInstance && parsed.instanceNumber
+                            ? `${groupDef.name} ${parsed.instanceNumber}`
+                            : groupDef.name,
                         prefix: groupKey,
                         columns: [],
-                        icon: <Users className="w-4 h-4"/>,
-                        color: 'purple',
-                        instanceNumber: number
-                    };
-                }
-                groups[groupKey].columns.push(column);
-            } else if (assetMatch) {
-                const number = parseInt(assetMatch[1]);
-                const groupKey = `asset_${number}`;
-
-                if (!groups[groupKey]) {
-                    groups[groupKey] = {
-                        name: `Asset ${number}`,
-                        prefix: groupKey,
-                        columns: [],
-                        icon: <Home className="w-4 h-4"/>,
-                        color: 'orange',
-                        instanceNumber: number
-                    };
-                }
-                groups[groupKey].columns.push(column);
-            } else if (jobMatch) { // Thêm logic cho job groups
-                const number = parseInt(jobMatch[1]);
-                const groupKey = `job_${number}`;
-
-                if (!groups[groupKey]) {
-                    groups[groupKey] = {
-                        name: `Job ${number}`,
-                        prefix: groupKey,
-                        columns: [],
-                        icon: <Briefcase className="w-4 h-4"/>,
-                        color: 'indigo', // Sử dụng màu indigo để phân biệt
-                        instanceNumber: number
-                    };
-                }
-                groups[groupKey].columns.push(column);
-            } else if (financeMatch) {
-                const groupKey = `finance`;
-
-                if (!groups[groupKey]) {
-                    groups[groupKey] = {
-                        name: ``,
-                        prefix: groupKey,
-                        columns: [],
-                        icon: <Briefcase className="w-4 h-4"/>,
-                        color: 'indigo'
+                        icon: getGroupIcon(groupDef.iconName, "w-4 h-4"), // Updated to use getGroupIcon
+                        color: groupDef.color,
+                        instanceNumber: parsed.instanceNumber
                     };
                 }
                 groups[groupKey].columns.push(column);
@@ -153,21 +117,15 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             }
         });
 
-        // Group by main categories
-        const guarantorGroups = Object.values(groups).filter(g => g.prefix.startsWith('guarantor_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
-        const jointGroups = Object.values(groups).filter(g => g.prefix.startsWith('joint_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
-        const assetGroups = Object.values(groups).filter(g => g.prefix.startsWith('asset_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
-        const jobGroups = Object.values(groups).filter(g => g.prefix.startsWith('job_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
-        const financeGroups = Object.values(groups).filter(g => g.prefix.startsWith('finance_')).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
-
+        // Group by categories dynamically
         const tabGroups: TabGroup[] = [
             {
-                key: 'general',
-                name: 'General',
+                key: 'essential', // Changed from 'general' to 'essential'
+                name: 'Essential', // Changed from 'General' to 'Essential'
                 icon: <Users className="w-5 h-5"/>,
                 color: 'blue',
                 groups: [{
-                    name: 'Main Borrower',
+                    name: 'Essential', // Changed from 'Main Borrower' to 'Essential'
                     prefix: 'main',
                     columns: mainColumns,
                     icon: <Users className="w-4 h-4"/>,
@@ -176,56 +134,51 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             }
         ];
 
-        if (guarantorGroups.length > 0) {
-            tabGroups.push({
-                key: 'guarantors',
-                name: 'Guarantors',
-                icon: <Shield className="w-5 h-5"/>,
-                color: 'green',
-                groups: guarantorGroups
-            });
-        }
+        // Dynamically create tabs for each group type
+        getAllGroups().forEach(groupDef => {
+            const groupInstances = Object.values(groups).filter(g =>
+                g.prefix.startsWith(groupDef.prefix + (groupDef.isMultiInstance ? '_' : ''))
+            ).sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
 
-        if (jointGroups.length > 0) {
-            tabGroups.push({
-                key: 'joints',
-                name: 'Joint Borrowers',
-                icon: <Users className="w-5 h-5"/>,
-                color: 'purple',
-                groups: jointGroups
-            });
-        }
-
-        if (assetGroups.length > 0) {
-            tabGroups.push({
-                key: 'assets',
-                name: 'Assets',
-                icon: <Home className="w-5 h-5"/>,
-                color: 'orange',
-                groups: assetGroups
-            });
-        }
-
-        if (jobGroups.length > 0) { // Thêm job groups vào tabGroups
-            tabGroups.push({
-                key: 'jobs',
-                name: 'Jobs',
-                icon: <Briefcase className="w-5 h-5"/>,
-                color: 'indigo', // Sử dụng indigo color
-                groups: jobGroups
-            });
-        }
+            if (groupInstances.length > 0) {
+                // Skip creating separate tabs for single-instance groups that should be in essential
+                // Only create tabs for multi-instance groups or explicitly configured single groups
+                if (groupDef.isMultiInstance || groupDef.key === 'finance') {
+                    tabGroups.push({
+                        key: groupDef.key,
+                        name: _.startCase(groupDef.key),
+                        icon: getGroupIcon(groupDef.iconName, "w-5 h-5"),
+                        color: groupDef.color,
+                        groups: groupInstances
+                    });
+                }
+            }
+        });
 
         return tabGroups;
     };
 
+    // Get color classes helper
+    const getColorClasses = (color: string, variant: 'bg' | 'text' | 'border' | 'hover') => {
+        const colorMap = {
+            blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-500', hover: 'hover:bg-blue-100' },
+            green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-500', hover: 'hover:bg-green-100' },
+            purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-500', hover: 'hover:bg-purple-100' },
+            orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-500', hover: 'hover:bg-orange-100' },
+            indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-500', hover: 'hover:bg-indigo-100' },
+            red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-500', hover: 'hover:bg-red-100' },
+            yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-500', hover: 'hover:bg-yellow-100' },
+            pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-500', hover: 'hover:bg-pink-100' },
+            teal: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-500', hover: 'hover:bg-teal-100' }
+        };
+        return colorMap[color as keyof typeof colorMap]?.[variant] || colorMap.blue[variant];
+    };
+
     const table = destinationTables[0];
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    const filteredColumns = getFilteredColumns(table);
+    const filteredColumns = getFilteredColumns!(table);
     const tabGroups = groupColumns(filteredColumns);
 
-    // Auto-switch tab based on search - ONLY if user hasn't manually selected
+    // Auto-switch tab logic (unchanged)
     React.useEffect(() => {
         if (globalFilter.trim() && !isUserManuallySelectedTab) {
             let bestTab = activeMainTab;
@@ -245,7 +198,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             if (bestTab !== activeMainTab && maxMatches > 0) {
                 setActiveMainTab(bestTab);
                 const targetTabGroup = tabGroups.find(tg => tg.key === bestTab);
-                if (targetTabGroup && targetTabGroup.groups.length > 0 && bestTab !== 'general') {
+                if (targetTabGroup && targetTabGroup.groups.length > 0 && bestTab !== 'essential') {
                     setActiveSubTabForMain(bestTab, targetTabGroup.groups[0].prefix);
                 }
             }
@@ -260,7 +213,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
         setActiveMainTab(tabKey);
         setIsUserManuallySelectedTab(true);
         const targetTabGroup = tabGroups.find(tg => tg.key === tabKey);
-        if (targetTabGroup && targetTabGroup.groups.length > 0 && tabKey !== 'general') {
+        if (targetTabGroup && targetTabGroup.groups.length > 0 && tabKey !== 'essential') {
             const currentSubTab = activeSubTab[tabKey];
             if (!currentSubTab) {
                 setActiveSubTabForMain(tabKey, targetTabGroup.groups[0].prefix);
@@ -275,13 +228,13 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
 
     if (globalFilter.trim()) {
         if (activeTabGroup) {
-            if (activeMainTab === 'general') {
+            if (activeMainTab === 'essential') {
                 const mainGroup = activeTabGroup.groups.find(g => g.prefix === 'main');
                 if (mainGroup) {
                     columnsToShow = mainGroup.columns.filter(col => filteredColumns.includes(col));
                     activeGroup = {
-                        name: `Main Borrower Results`,
-                        prefix: 'main_results',
+                        name: `Essential Results`, // Updated name
+                        prefix: 'essential_results', // Updated prefix
                         columns: columnsToShow,
                         icon: mainGroup.icon,
                         color: mainGroup.color
@@ -310,7 +263,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
         }
     } else {
         activeGroup = activeTabGroup?.groups.find(g => {
-            if (activeMainTab === 'general') return g.prefix === 'main';
+            if (activeMainTab === 'essential') return g.prefix === 'main';
             return g.prefix === activeSubTab[activeMainTab];
         }) || activeTabGroup?.groups[0];
 
@@ -356,23 +309,13 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                 onClick={() => handleTabClick(tabGroup.key)}
                                 className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 relative ${
                                     activeMainTab === tabGroup.key
-                                        ? tabGroup.color === 'blue' ? 'border-blue-500 text-blue-600 bg-blue-50' :
-                                            tabGroup.color === 'green' ? 'border-green-500 text-green-600 bg-green-50' :
-                                                tabGroup.color === 'purple' ? 'border-purple-500 text-purple-600 bg-purple-50' :
-                                                    tabGroup.color === 'orange' ? 'border-orange-500 text-orange-600 bg-orange-50' :
-                                                        tabGroup.color === 'indigo' ? 'border-indigo-500 text-indigo-600 bg-indigo-50' : // Thêm indigo color
-                                                            'border-gray-500 text-gray-600 bg-gray-50'
+                                        ? `${getColorClasses(tabGroup.color, 'border')} ${getColorClasses(tabGroup.color, 'text')} ${getColorClasses(tabGroup.color, 'bg')}`
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
                             >
                                 <div className={`mr-3 ${
                                     activeMainTab === tabGroup.key
-                                        ? tabGroup.color === 'blue' ? 'text-blue-600' :
-                                            tabGroup.color === 'green' ? 'text-green-600' :
-                                                tabGroup.color === 'purple' ? 'text-purple-600' :
-                                                    tabGroup.color === 'orange' ? 'text-orange-600' :
-                                                        tabGroup.color === 'indigo' ? 'text-indigo-600' : // Thêm indigo color
-                                                            'text-gray-600'
+                                        ? getColorClasses(tabGroup.color, 'text')
                                         : 'text-gray-400'
                                 }`}>
                                     {tabGroup.icon}
@@ -385,14 +328,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                 )}
 
                                 {globalFilter.trim() && matchingCount > 0 && (
-                                    <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium ${
-                                        tabGroup.color === 'blue' ? 'bg-blue-500 text-white' :
-                                            tabGroup.color === 'green' ? 'bg-green-500 text-white' :
-                                                tabGroup.color === 'purple' ? 'bg-purple-500 text-white' :
-                                                    tabGroup.color === 'orange' ? 'bg-orange-500 text-white' :
-                                                        tabGroup.color === 'indigo' ? 'bg-indigo-500 text-white' : // Thêm indigo color
-                                                            'bg-gray-500 text-white'
-                                    }`}>
+                                    <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium bg-${tabGroup.color}-500 text-white`}>
                                         {matchingCount}
                                     </span>
                                 )}
@@ -407,22 +343,10 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
             </div>
 
             {/* Sub-tabs Navigation */}
-            {activeTabGroup && activeTabGroup.groups.length >= 1 && activeTabGroup.key !== 'general' && (
-                <div className={
-                    activeTabGroup.color === 'blue' ? 'bg-blue-50 border-b border-blue-200 p-2' :
-                        activeTabGroup.color === 'green' ? 'bg-green-50 border-b border-green-200' :
-                            activeTabGroup.color === 'purple' ? 'bg-purple-50 border-b border-purple-200' :
-                                activeTabGroup.color === 'orange' ? 'bg-orange-50 border-b border-orange-200' :
-                                    activeTabGroup.color === 'indigo' ? 'bg-indigo-50 border-b border-indigo-200' : // Thêm indigo color
-                                        'bg-gray-50 border-b border-gray-200'
-                }>
+            {activeTabGroup && activeTabGroup.groups.length >= 1 && activeTabGroup.key !== 'essential' && (
+                <div className={getColorClasses(activeTabGroup.color, 'bg') + ' border-b p-2'}>
                     <div className="flex overflow-x-auto px-6">
                         {activeTabGroup.groups.map((group) => {
-                            group.columns.some(column =>
-                                mappings.some(m =>
-                                    m.destination.table === table.name && m.destination.column === column
-                                )
-                            );
                             const searchResultsCount = globalFilter.trim() ?
                                 group.columns.filter(col => filteredColumns.includes(col)).length : 0;
 
@@ -432,12 +356,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                     onClick={() => setActiveSubTabForMain(activeMainTab, group.prefix)}
                                     className={`relative flex-shrink-0 flex items-center px-4 py-3 mx-1 text-sm font-medium transition-all duration-300 transform ${
                                         activeSubTab[activeMainTab] === group.prefix
-                                            ? activeTabGroup.color === 'blue' ? 'text-blue-700 bg-white shadow-md border-2 border-blue-300 rounded-2xl scale-105 font-semibold m-2' :
-                                                activeTabGroup.color === 'green' ? 'text-green-700 bg-white shadow-md border-2 border-green-300 rounded-2xl scale-105 font-semibold m-2' :
-                                                    activeTabGroup.color === 'purple' ? 'text-purple-700 bg-white shadow-md border-2 border-purple-300 rounded-2xl scale-105 font-semibold m-2' :
-                                                        activeTabGroup.color === 'orange' ? 'text-orange-700 bg-white shadow-md border-2 border-orange-300 rounded-2xl scale-105 font-semibold m-2' :
-                                                            activeTabGroup.color === 'indigo' ? 'text-indigo-700 bg-white shadow-md border-2 border-indigo-300 rounded-2xl scale-105 font-semibold m-2' : // Thêm indigo color
-                                                                'text-gray-700 bg-white shadow-md border-2 border-gray-300 rounded-lg scale-105 font-semibold'
+                                            ? `${getColorClasses(activeTabGroup.color, 'text')} bg-white shadow-md border-2 ${getColorClasses(activeTabGroup.color, 'border')} rounded-2xl scale-105 font-semibold m-2`
                                             : 'text-gray-600 hover:text-gray-700 hover:bg-gray-100 hover:shadow-sm hover:scale-102 rounded-2xl border-2 border-transparent'
                                     }`}
                                 >
@@ -451,57 +370,33 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                     {globalFilter.trim() && searchResultsCount > 0 ? (
                                         <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium transition-all duration-300 ${
                                             activeSubTab[activeMainTab] === group.prefix
-                                                ? activeTabGroup.color === 'indigo' ? 'bg-indigo-500 text-white shadow-sm' : 'bg-blue-500 text-white shadow-sm'
+                                                ? `bg-${activeTabGroup.color}-500 text-white shadow-sm`
                                                 : 'bg-yellow-500 text-white shadow-sm'
                                         }`}>
                                             {searchResultsCount}
                                         </span>
                                     ) : (
                                         <span className="ml-2 px-2 py-1 text-xs rounded-full transition-all duration-300 bg-white bg-opacity-70 text-gray-600">
-                                            {/* Column count nếu cần */}
                                         </span>
                                     )}
                                 </button>
                             );
                         })}
 
-                        {/* Add button */}
+                        {/* Add button - Generic for any group */}
                         <button
                             onClick={() => {
-                                if (activeTabGroup.key === 'guarantors') {
-                                    const newSlotNumber = addGuarantorSlot();
-                                    if (newSlotNumber) {
-                                        setActiveSubTabForMain('guarantors', `guarantor_${newSlotNumber}`);
-                                    }
-                                }
-                                if (activeTabGroup.key === 'joints') {
-                                    const newSlotNumber = addJointSlot();
-                                    if (newSlotNumber) {
-                                        setActiveSubTabForMain('joints', `joint_${newSlotNumber}`);
-                                    }
-                                }
-                                if (activeTabGroup.key === 'assets') {
-                                    const newSlotNumber = addAssetSlot();
-                                    if (newSlotNumber) {
-                                        setActiveSubTabForMain('assets', `asset_${newSlotNumber}`);
-                                    }
-                                }
-                                if (activeTabGroup.key === 'jobs') {
-                                    const newSlotNumber = addJobSlot();
-                                    if (newSlotNumber) {
-                                        setActiveSubTabForMain('jobs', `job_${newSlotNumber}`);
+                                const groupDef = getGroupByKey(activeTabGroup.key);
+                                if (groupDef) {
+                                    const newSlotNumber = addSlot(activeTabGroup.key);
+                                    if (newSlotNumber && groupDef.isMultiInstance) {
+                                        setActiveSubTabForMain(activeTabGroup.key, `${groupDef.prefix}_${newSlotNumber}`);
                                     }
                                 }
                             }}
-                            disabled={
-                                (activeTabGroup.key === 'guarantors' && config.maxGuarantors >= 10) ||
-                                (activeTabGroup.key === 'joints' && config.maxJointBorrowers >= 10) ||
-                                (activeTabGroup.key === 'assets' && config.maxAssets >= 10) ||
-                                (activeTabGroup.key === 'jobs' && config.maxJobs >= 10) // Thêm job limit
-                            }
+                            disabled={config[activeTabGroup.key] >= (getGroupByKey(activeTabGroup.key)?.maxInstances || 0)}
                             className={`flex-shrink-0 flex items-center justify-center w-10 h-10 mx-1 my-2 text-md font-medium rounded-full border-2 border-dashed transition-all duration-300 ${
-                                activeTabGroup.color === 'indigo' ? 'border-indigo-300 text-indigo-500 hover:bg-indigo-100 hover:border-indigo-400 hover:text-indigo-600' :
-                                    'border-blue-300 text-blue-500 hover:bg-blue-100 hover:border-blue-400 hover:text-blue-600'
+                                `border-${activeTabGroup.color}-300 text-${activeTabGroup.color}-500 hover:bg-${activeTabGroup.color}-100 hover:border-${activeTabGroup.color}-400 hover:text-${activeTabGroup.color}-600`
                             } disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105`}
                             title={`Add new ${activeTabGroup.name.toLowerCase().slice(0, -1)}`}
                         >
@@ -534,31 +429,36 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                 );
 
                                 const displayColumn = formatColumnName(column);
+                                const parsed = parseColumnName(column);
+                                const groupType = parsed ? getGroupByKey(parsed.groupKey!)?.name : 'Essential';
+
+                                // Special highlighting for created_date column
+                                const isCreatedDateColumn = column === 'created_date';
 
                                 return (
                                     <div
                                         key={index}
-                                        className={`bg-white rounded-lg border-2 ${columnMappings.length > 0 ? 'border-green-300 bg-green-50' : 'border-gray-200'} p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer`}
+                                        className={`bg-white rounded-lg border-2 p-4 hover:shadow-md transition-all duration-200 cursor-pointer ${
+                                            columnMappings.length > 0
+                                                ? 'border-green-300 bg-green-50'
+                                                : isCreatedDateColumn
+                                                    ? 'border-blue-300 bg-blue-50'
+                                                    : 'border-gray-200 hover:border-blue-300'
+                                        }`}
                                         onDragOver={onDragOver}
                                         onDrop={(e) => onDrop(e, table, column)}
                                     >
                                         <div className="flex items-start justify-between mb-3">
-                                            <div className={
-                                                activeGroup.color === 'indigo' ? 'bg-indigo-100 p-2 rounded-lg' :
-                                                    activeGroup.color === 'blue' ? 'bg-blue-100 p-2 rounded-lg' :
-                                                        activeGroup.color === 'green' ? 'bg-green-100 p-2 rounded-lg' :
-                                                            activeGroup.color === 'purple' ? 'bg-purple-100 p-2 rounded-lg' :
-                                                                activeGroup.color === 'orange' ? 'bg-orange-100 p-2 rounded-lg' :
-                                                                    'bg-gray-100 p-2 rounded-lg'
-                                            }>
-                                                <Columns className={
-                                                    activeGroup.color === 'indigo' ? 'w-4 h-4 text-indigo-600' :
-                                                        activeGroup.color === 'blue' ? 'w-4 h-4 text-blue-600' :
-                                                            activeGroup.color === 'green' ? 'w-4 h-4 text-green-600' :
-                                                                activeGroup.color === 'purple' ? 'w-4 h-4 text-purple-600' :
-                                                                    activeGroup.color === 'orange' ? 'w-4 h-4 text-orange-600' :
-                                                                        'w-4 h-4 text-gray-600'
-                                                }/>
+                                            <div className={`p-2 rounded-lg ${
+                                                isCreatedDateColumn
+                                                    ? 'bg-blue-100'
+                                                    : getColorClasses(activeGroup.color, 'bg')
+                                            }`}>
+                                                <Columns className={`w-4 h-4 ${
+                                                    isCreatedDateColumn
+                                                        ? 'text-blue-600'
+                                                        : getColorClasses(activeGroup.color, 'text')
+                                                }`}/>
                                             </div>
                                             {columnMappings.length > 0 && (
                                                 <div className="bg-green-100 px-2 py-1 rounded-full">
@@ -575,11 +475,7 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                             </h4>
                                             {globalFilter.trim() && (
                                                 <p className="text-xs text-gray-500 mb-1">
-                                                    {column.startsWith('guarantor_') ? 'Guarantor' :
-                                                        column.startsWith('joint_') ? 'Joint Borrower' :
-                                                            column.startsWith('asset_') ? 'Asset' :
-                                                                column.startsWith('job_') ? 'Job' :
-                                                                    'Main Borrower'}
+                                                    {groupType}
                                                 </p>
                                             )}
                                         </div>
@@ -588,31 +484,12 @@ export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
                                             <div className="space-y-2">
                                                 {columnMappings.map(mapping => (
                                                     <div key={mapping.id} className={
-                                                        activeGroup.color === 'indigo' ? 'bg-indigo-50 border border-indigo-200 rounded p-2 text-xs' :
-                                                            activeGroup.color === 'blue' ? 'bg-blue-50 border border-blue-200 rounded p-2 text-xs' :
-                                                                activeGroup.color === 'green' ? 'bg-green-50 border border-green-200 rounded p-2 text-xs' :
-                                                                    activeGroup.color === 'purple' ? 'bg-purple-50 border border-purple-200 rounded p-2 text-xs' :
-                                                                        activeGroup.color === 'orange' ? 'bg-orange-50 border border-orange-200 rounded p-2 text-xs' :
-                                                                            'bg-gray-50 border border-gray-200 rounded p-2 text-xs'
+                                                        getColorClasses(activeGroup.color, 'bg') + ` border ${getColorClasses(activeGroup.color, 'border')} rounded p-2 text-xs`
                                                     }>
                                                         <div className="flex items-start justify-between">
-                                                            <div className={`flex-1 min-w-0 ${
-                                                                activeGroup.color === 'indigo' ? 'text-indigo-700' :
-                                                                    activeGroup.color === 'blue' ? 'text-blue-700' :
-                                                                        activeGroup.color === 'green' ? 'text-green-700' :
-                                                                            activeGroup.color === 'purple' ? 'text-purple-700' :
-                                                                                activeGroup.color === 'orange' ? 'text-orange-700' :
-                                                                                    'text-gray-700'
-                                                            }`}>
+                                                            <div className={`flex-1 min-w-0 ${getColorClasses(activeGroup.color, 'text')}`}>
                                                                 <div className="font-medium truncate mb-1">{mapping.source.value}</div>
-                                                                <div className={`text-[10px] truncate ${
-                                                                    activeGroup.color === 'indigo' ? 'text-indigo-500' :
-                                                                        activeGroup.color === 'blue' ? 'text-blue-500' :
-                                                                            activeGroup.color === 'green' ? 'text-green-500' :
-                                                                                activeGroup.color === 'purple' ? 'text-purple-500' :
-                                                                                    activeGroup.color === 'orange' ? 'text-orange-500' :
-                                                                                        'text-gray-500'
-                                                                }`}>
+                                                                <div className={`text-[10px] truncate opacity-75`}>
                                                                     {mapping.source.file} → {mapping.source.sheet}
                                                                 </div>
                                                             </div>
