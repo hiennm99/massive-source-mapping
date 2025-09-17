@@ -1,0 +1,187 @@
+// src/utils/iconHelper.tsx - Icon mapping utility
+import React from 'react';
+import {
+    Users,
+    Shield,
+    Home,
+    Briefcase,
+    DollarSign,
+    MapPin,
+    Phone,
+    Building2,
+    User,
+    FileText,
+    Calendar,
+    CreditCard,
+    Car,
+    Package,
+    TrendingUp,
+    Settings,
+    Info,
+    HelpCircle,
+    AlertCircle,
+    CheckCircle,
+    XCircle,
+    Plus,
+    Minus,
+    Edit,
+    Trash2,
+    Search,
+    Filter,
+    Download,
+    Upload,
+    Save,
+    Copy,
+    Eye,
+    EyeOff,
+    ChevronDown,
+    ChevronUp,
+    ChevronLeft,
+    ChevronRight,
+    ArrowUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ExternalLink,
+    Link,
+    Mail,
+    Globe,
+    Lock,
+    Unlock,
+    Bell,
+    Star,
+    Heart,
+    Bookmark,
+    Tag,
+    Flag,
+    Clock,
+    Zap,
+    Target,
+    Award,
+    Layers,
+    Grid,
+    List,
+    MoreHorizontal,
+    MoreVertical
+} from 'lucide-react';
+
+// Icon mapping for all possible icons used in the application
+export const iconMap = {
+    // Group-specific icons
+    Users,
+    Shield,
+    Home,
+    Briefcase,
+    DollarSign,
+    MapPin,
+    Phone,
+    Building2,
+
+    // Additional common icons
+    User,
+    FileText,
+    Calendar,
+    CreditCard,
+    Car,
+    Package,
+    TrendingUp,
+    Settings,
+    Info,
+    HelpCircle,
+    AlertCircle,
+    CheckCircle,
+    XCircle,
+    Plus,
+    Minus,
+    Edit,
+    Trash2,
+    Search,
+    Filter,
+    Download,
+    Upload,
+    Save,
+    Copy,
+    Eye,
+    EyeOff,
+    ChevronDown,
+    ChevronUp,
+    ChevronLeft,
+    ChevronRight,
+    ArrowUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ExternalLink,
+    Link,
+    Mail,
+    Globe,
+    Lock,
+    Unlock,
+    Bell,
+    Star,
+    Heart,
+    Bookmark,
+    Tag,
+    Flag,
+    Clock,
+    Zap,
+    Target,
+    Award,
+    Layers,
+    Grid,
+    List,
+    MoreHorizontal,
+    MoreVertical
+};
+
+export type IconName = keyof typeof iconMap;
+
+/**
+ * Get icon component by name with optional className
+ */
+export const getIcon = (iconName: string, className?: string): React.ReactNode => {
+    const IconComponent = iconMap[iconName as IconName];
+
+    if (!IconComponent) {
+        console.warn(`Icon "${iconName}" not found. Using default User icon.`);
+        return <User className={className || "w-4 h-4"} />;
+    }
+
+    return <IconComponent className={className || "w-4 h-4"} />;
+};
+
+/**
+ * Get icon component for column groups with fallback
+ */
+export const getGroupIcon = (iconName: string, className?: string): React.ReactNode => {
+    // Map of group-specific icon fallbacks
+    const groupIconFallbacks: Record<string, IconName> = {
+        'Address': 'MapPin',
+        'Home': 'Home',
+        'Shield': 'Shield',
+        'Briefcase': 'Briefcase',
+        'DollarSign': 'DollarSign',
+        'Phone': 'Phone',
+        'Building2': 'Building2',
+        'Users': 'Users',
+        'User': 'User',
+        'MapPin': 'MapPin'
+    };
+
+    const fallbackIcon = groupIconFallbacks[iconName] || 'User';
+    return getIcon(iconName, className) || getIcon(fallbackIcon, className);
+};
+
+/**
+ * Check if an icon exists in the map
+ */
+export const iconExists = (iconName: string): boolean => {
+    return iconName in iconMap;
+};
+
+/**
+ * Get all available icon names
+ */
+export const getAllIconNames = (): IconName[] => {
+    return Object.keys(iconMap) as IconName[];
+};

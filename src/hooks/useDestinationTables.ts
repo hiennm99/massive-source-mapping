@@ -1,81 +1,58 @@
-// src/hooks/useDestinationTables.ts - Fixed version with return values
+// src/hooks/useDestinationTables.ts - Automated version using config
 import { useState, useCallback } from 'react';
-import type { DestinationTable, TableConfig } from '../types';
+import { COLUMN_GROUPS, BASE_COLUMNS, getGroupByKey } from '../config/columnGroups';
+import type { DestinationTable } from '../types';
+
+export interface TableConfig {
+    [key: string]: number; // Dynamic keys for each group
+}
 
 export const useDestinationTables = () => {
-    const [config, setConfig] = useState<TableConfig>({
-        maxGuarantors: 3,
-        maxJointBorrowers: 3,
-        maxAssets: 3,
-        maxJobs: 1
+    // Initialize config dynamically from COLUMN_GROUPS
+    const [config, setConfig] = useState<TableConfig>(() => {
+        const initialConfig: TableConfig = {};
+        COLUMN_GROUPS.forEach(group => {
+            // Set initial values - you can customize these
+            if (group.key === 'guarantors') initialConfig[group.key] = 3;
+            else if (group.key === 'joints') initialConfig[group.key] = 3;
+            else if (group.key === 'addresses') initialConfig[group.key] = 1;
+            else if (group.key === 'contacts') initialConfig[group.key] = 1;
+            else if (group.key === 'banks') initialConfig[group.key] = 1;
+            else if (group.key === 'assets') initialConfig[group.key] = 3;
+            else if (group.key === 'jobs') initialConfig[group.key] = 1;
+            else if (group.key === 'finance') initialConfig[group.key] = 1;
+            else initialConfig[group.key] = 1; // Default for new groups
+        });
+        return initialConfig;
     });
 
-    // Generate columns dynamically
+    // Generate columns dynamically from config
     const generateTable = useCallback((config: TableConfig): DestinationTable => {
-        const baseColumns = [
-            'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
-            'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
-            'ndg', 'gbv', 'dbt_date', 'originator', 'credit_type',
-            'phone_number', 'email', 'bank_abi', 'bank_cab', 'bank_account'
-        ];
+        const columns = [...BASE_COLUMNS];
 
-        const guarantorFields = [
-            'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
-            'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
-            'ndg', 'phone_number', 'email', 'type', 'limit'
-        ];
+        // Generate columns for each group
+        COLUMN_GROUPS.forEach(group => {
+            const count = config[group.key] || 0;
 
-        const jointFields = [
-            'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'note_1', 'note_2',
-            'country', 'postcode', 'region', 'province', 'city', 'address', 'vat_number',
-            'ndg', 'phone_number', 'email'
-        ];
-
-        const assetFields = [
-            'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
-            'country', 'postcode', 'region', 'province', 'city', 'address',
-            'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain'
-        ];
-
-        const jobFields = [
-            'ref', 'pension_category', 'name', 'start_date', 'note_date', 'income_range', 'monthly_income', 'work_activity_notes',
-            'legal_street_type', 'legal_street', 'legal_street_number', 'legal_at', 'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
-            'operation_street_type', 'operation_street', 'operation_street_number', 'operation_at', 'operation_postcode', 'operation_province',
-            'employer_phone', 'employer_fax'
-        ];
-
-        const columns = [...baseColumns];
-
-        // Generate guarantor columns
-        for (let i = 1; i <= config.maxGuarantors; i++) {
-            guarantorFields.forEach(field => {
-                columns.push(`guarantor_${i}_${field}`);
-            });
-        }
-
-        // Generate joint borrower columns
-        for (let i = 1; i <= config.maxJointBorrowers; i++) {
-            jointFields.forEach(field => {
-                columns.push(`joint_${i}_${field}`);
-            });
-        }
-
-        // Generate asset columns
-        for (let i = 1; i <= config.maxAssets; i++) {
-            assetFields.forEach(field => {
-                columns.push(`asset_${i}_${field}`);
-            });
-        }
-
-        // Generate job columns
-        for (let i = 1; i <= config.maxJobs; i++) {
-            jobFields.forEach(field => {
-                columns.push(`job_${i}_${field}`);
-            });
-        }
+            if (group.isMultiInstance) {
+                // Multi-instance groups like guarantor_1_, guarantor_2_
+                for (let i = 1; i <= count; i++) {
+                    group.fields.forEach(field => {
+                        columns.push(`${group.prefix}_${i}_${field}`);
+                    });
+                }
+            } else {
+                // Single instance groups like finance_ongoing_garnishments
+                if (count > 0) {
+                    group.fields.forEach(field => {
+                        columns.push(`${group.prefix}_${field}`);
+                    });
+                }
+            }
+        });
 
         return {
-            name: 'main_borrower',
+            name: 'essential',
             columns
         };
     }, []);
@@ -98,69 +75,63 @@ export const useDestinationTables = () => {
     // Update config and regenerate table
     const updateConfig = useCallback((newConfig: Partial<TableConfig>) => {
         const updatedConfig = { ...config, ...newConfig };
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
         setConfig(updatedConfig);
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
         setDestinationTables([generateTable(updatedConfig)]);
     }, [config, generateTable]);
 
-    const addGuarantorSlot = useCallback(() => {
-        if (config.maxGuarantors < 10) {
-            const newSlotNumber = config.maxGuarantors + 1;
-            updateConfig({ maxGuarantors: newSlotNumber });
+    // Generic function to add slot for any group
+    const addSlot = useCallback((groupKey: string) => {
+        const group = getGroupByKey(groupKey);
+        if (!group) return null;
+
+        const currentCount = config[groupKey] || 0;
+        if (currentCount < group.maxInstances) {
+            const newSlotNumber = currentCount + 1;
+            updateConfig({ [groupKey]: newSlotNumber });
             return newSlotNumber;
         }
         return null;
-    }, [config.maxGuarantors, updateConfig]);
+    }, [config, updateConfig]);
 
-    const removeGuarantorSlot = useCallback(() => {
-        if (config.maxGuarantors > 0) {
-            updateConfig({ maxGuarantors: config.maxGuarantors - 1 });
+    // Generic function to remove slot for any group
+    const removeSlot = useCallback((groupKey: string) => {
+        const currentCount = config[groupKey] || 0;
+        if (currentCount > 0) {
+            updateConfig({ [groupKey]: currentCount - 1 });
         }
-    }, [config.maxGuarantors, updateConfig]);
+    }, [config, updateConfig]);
 
-    const addJointSlot = useCallback(() => {
-        if (config.maxJointBorrowers < 5) {
-            const newSlotNumber = config.maxJointBorrowers + 1;
-            updateConfig({ maxJointBorrowers: newSlotNumber });
-            return newSlotNumber;
-        }
-        return null;
-    }, [config.maxJointBorrowers, updateConfig]);
+    // Create specific functions for backward compatibility
+    const addGuarantorSlot = useCallback(() => addSlot('guarantors'), [addSlot]);
+    const removeGuarantorSlot = useCallback(() => removeSlot('guarantors'), [removeSlot]);
+    const addJointSlot = useCallback(() => addSlot('joints'), [addSlot]);
+    const removeJointSlot = useCallback(() => removeSlot('joints'), [removeSlot]);
 
-    const removeJointSlot = useCallback(() => {
-        if (config.maxJointBorrowers > 0) {
-            updateConfig({ maxJointBorrowers: config.maxJointBorrowers - 1 });
-        }
-    }, [config.maxJointBorrowers, updateConfig]);
+    const addAddressSlot = useCallback(() => addSlot('addresses'), [addSlot]);
+    const removeAddressSlot = useCallback(() => removeSlot('addresses'), [removeSlot]);
 
-    const addAssetSlot = useCallback(() => {
-        if (config.maxAssets < 20) {
-            const newSlotNumber = config.maxAssets + 1;
-            updateConfig({ maxAssets: newSlotNumber });
-            return newSlotNumber;
-        }
-        return null;
-    }, [config.maxAssets, updateConfig]);
+    const addContactSlot = useCallback(() => addSlot('contacts'), [addSlot]);
+    const removeContactSlot = useCallback(() => removeSlot('contacts'), [removeSlot]);
 
-    const removeAssetSlot = useCallback(() => {
-        if (config.maxAssets > 0) {
-            updateConfig({ maxAssets: config.maxAssets - 1 });
-        }
-    }, [config.maxAssets, updateConfig]);
+    const addBankSlot = useCallback(() => addSlot('banks'), [addSlot]);
+    const removeBankSlot = useCallback(() => removeSlot('banks'), [removeSlot]);
 
-    const addJobSlot = useCallback(() => {
-        if (config.maxJobs < 20) {
-            const newSlotNumber = config.maxJobs + 1;
-            updateConfig({ maxJobs: newSlotNumber });
-            return newSlotNumber;
-        }
-        return null;
-    }, [config.maxJobs, updateConfig]);
+    const addAssetSlot = useCallback(() => addSlot('assets'), [addSlot]);
+    const removeAssetSlot = useCallback(() => removeSlot('assets'), [removeSlot]);
+    const addJobSlot = useCallback(() => addSlot('jobs'), [addSlot]);
+    const removeJobSlot = useCallback(() => removeSlot('jobs'), [removeSlot]);
 
-    const removeJobSlot = useCallback(() => {
-        if (config.maxJobs > 0) {
-            updateConfig({ maxJobs: config.maxJobs - 1 });
-        }
-    }, [config.maxJobs, updateConfig]);
+    // New generic functions that can be used for any group
+    const addVehicleSlot = useCallback(() => addSlot('vehicles'), [addSlot]);
+    const removeVehicleSlot = useCallback(() => removeSlot('vehicles'), [removeSlot]);
+    const addCreditCardSlot = useCallback(() => addSlot('credit_cards'), [addSlot]);
+    const removeCreditCardSlot = useCallback(() => removeSlot('credit_cards'), [removeSlot]);
+    const addFinanceSlot = useCallback(() => addSlot('finance'), [addSlot]);
+    const removeFinanceSlot = useCallback(() => removeSlot('finance'), [removeSlot]);
 
     return {
         destinationTables,
@@ -168,13 +139,34 @@ export const useDestinationTables = () => {
         setGlobalFilter,
         getFilteredColumns,
         config,
+
+        // Backward compatibility functions
         addGuarantorSlot,
         removeGuarantorSlot,
         addJointSlot,
         removeJointSlot,
+        addAddressSlot,
+        removeAddressSlot,
+        addContactSlot,
+        removeContactSlot,
+        addBankSlot,
+        removeBankSlot,
         addAssetSlot,
         removeAssetSlot,
         addJobSlot,
-        removeJobSlot
+        removeJobSlot,
+        // New generic functions
+        addSlot,
+        removeSlot,
+        addVehicleSlot,
+        removeVehicleSlot,
+        addCreditCardSlot,
+        removeCreditCardSlot,
+        addFinanceSlot,
+        removeFinanceSlot,
+
+        // Utility
+        getGroupConfig: (groupKey: string) => config[groupKey] || 0,
+        getAllGroups: () => COLUMN_GROUPS
     };
 };
