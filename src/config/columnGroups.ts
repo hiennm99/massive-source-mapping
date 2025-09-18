@@ -101,10 +101,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         fields: [
             'reference', 'pension_category', 'employer_name', 'start_date', 'note_date',
             'income_range', 'monthly_income', 'work_activity_notes',
-            'legal_street_type', 'legal_street', 'legal_street_number', 'legal_at',
+            'legal_street_type', 'legal_street', 'legal_street_number', 'legal_address',
             'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
-            'operation_street_type', 'operation_street', 'operation_street_number', 'operation_at',
-            'operation_postcode', 'operation_province', 'employer_phone', 'employer_fax'
+            'operation_street_type', 'operation_street', 'operation_street_number', 'operation_address',
+            'operation_city', 'operation_postcode', 'operation_province', 'employer_phone', 'employer_fax'
         ]
     },
     {
@@ -114,12 +114,11 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         color: 'red',
         maxInstances: 2,
         prefix: 'finance',
-        isMultiInstance: false, // Changed to false - single instance group
+        isMultiInstance: true,
         fields: [
-            'ongoing_garnishments', 'garnishment_amount', 'garnishment_due_date', 'garnishment_notes',
-            'ongoing_assignments', 'assignment_amount', 'assignment_due_date', 'assignment_notes',
-            'fixed_term_contract_expiry_date', 'contract_type', 'legal_at', 'legal_city',
-            'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code'
+            'supplier_evaluation', 'bank_account', 'ongoing_garnishments', 'garnishment_amount',
+            'garnishment_expiry', 'garnishment_notes', 'ongoing_transfers', 'transfer_amount',
+            'transfer_expiry', 'transfer_notes'
         ]
     }
 ];
