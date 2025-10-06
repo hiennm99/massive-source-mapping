@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import type {SheetInfo, FileData, BackendScanResponse, ScanResult} from "../types.ts";
 
 // Backend configuration
-const BACKEND_URL = 'https://massive-source-mapping-backend-production.up.railway.app';
+const BACKEND_URL = 'https://massive-source-mapping-backend-production-b621.up.railway.app';
 // const BACKEND_URL = 'http://localhost:8000';
 const API_ENDPOINTS = {
     singleUpload: `${BACKEND_URL}/api/excel/scan-upload-gcs`,

@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import type {MappingExportResponse, MappingSource, MappingExportData, ApiError} from "../types";
 
 // Backend config
-const BACKEND_URL = 'https://massive-source-mapping-backend-production.up.railway.app';
+const BACKEND_URL = 'https://massive-source-mapping-backend-production-b621.up.railway.app';
 const API_ENDPOINTS = {
     mappings: `${BACKEND_URL}/api/mapping-exports`,
     health: `${BACKEND_URL}/`,
