@@ -21,7 +21,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'address',
         isMultiInstance: true,
         fields: [
-            'country', 'postcode', 'region', 'province', 'city', 'street'
+            'city', 'street', 'province', 'country', 'postcode'
         ]
     },
     {
@@ -46,7 +46,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         isMultiInstance: true,
         fields: [
             'fiscal_code', 'note',
-            'country', 'postcode', 'region', 'province', 'city', 'address', 'account_number',
+            'country', 'postcode', 'province', 'city', 'address', 'account_number',
             'bank_abi', 'bank_cab', 'account_type',
         ]
     },
@@ -85,7 +85,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         isMultiInstance: true,
         fields: [
             'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
-            'country', 'postcode', 'region', 'province', 'city', 'address',
+            'country', 'postcode', 'province', 'city', 'address',
             'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain',
             'notes'
         ]
@@ -99,7 +99,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'job',
         isMultiInstance: true,
         fields: [
-            'reference', 'pension_category', 'employer_name', 'start_date', 'note_date',
+            'reference', 'pension_category', 'employer_name', 'start_date', 'end_date',
             'income_range', 'monthly_income', 'work_activity_notes',
             'legal_street_type', 'legal_street', 'legal_street_number', 'legal_address',
             'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
@@ -125,7 +125,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
 
 // Base columns that don't belong to any group - ADDED created_date
 export const BASE_COLUMNS = [
-    'fiscal_code', 'surname', 'name', 'gender', 'dob', 'pob', 'notes',
+    'fiscal_code', 'surname', 'name', 'notes',
     'ndg', 'gbv', 'dbt_date', 'originator', 'credit_type', 'is_verified', 'created_date'
 ];
 
