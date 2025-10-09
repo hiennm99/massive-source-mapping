@@ -1,9 +1,10 @@
-// File: src/services/mappingExportService.ts - UPDATED FOR BACKEND COMPATIBILITY
+// File: src/services/mappingExportService.ts
 import { toast } from 'sonner';
 import type {MappingExportResponse, MappingSource, MappingExportData, ApiError} from "../types";
+import { COLUMN_GROUPS } from '../config/columnGroups';
 
 // Backend config
-const BACKEND_URL = 'https://massive-source-mapping-backend-production.up.railway.app';
+const BACKEND_URL = 'https://massive-source-mapping-backend-production-b621.up.railway.app';
 const API_ENDPOINTS = {
     mappings: `${BACKEND_URL}/api/mapping-exports`,
     health: `${BACKEND_URL}/`,
@@ -17,81 +18,77 @@ const headers = {
     'Accept': 'application/json'
 };
 
-// Validate MappingSource structure to match backend expectations
-const validateMappingSource = (source: unknown): MappingSource => {
+// Get all group keys for validation
+const GROUP_KEYS = COLUMN_GROUPS.map(g => g.key);
+
+// Validate MappingSource - Return null if any field is missing (backend requirement)
+const validateMappingSource = (source: unknown): MappingSource | null => {
     if (!source || typeof source !== 'object') {
-        throw new Error('Invalid mapping source structure - must be an object');
+        return null;
     }
 
-    // Check for required fields and ensure they have meaningful values
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    const file = typeof source.file === 'string' ? source.file.trim() : '';
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    const sheet = typeof source.sheet === 'string' ? source.sheet.trim() : '';
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    const column = typeof source.column === 'string' ? source.column.trim() : '';
+    const file = typeof (source as any).file === 'string' ? (source as any).file.trim() : '';
+    const sheet = typeof (source as any).sheet === 'string' ? (source as any).sheet.trim() : '';
+    const column = typeof (source as any).column === 'string' ? (source as any).column.trim() : '';
 
-    // Validate required fields are not empty
+    // Backend requires ALL 3 fields to be non-empty
     if (!file || !sheet || !column) {
-        throw new Error(`Invalid mapping source - missing required fields: file="${file}", sheet="${sheet}", column="${column}"`);
+        return null;
     }
 
-    // Return plain object - no class instances
-    return {
-        file,
-        sheet,
-        column
-    };
+    return { file, sheet, column };
 };
 
-// Validate array mappings with strict backend format compliance
+// Validate object mappings (for base group) - Filter out incomplete mappings
+const validateObjectMappings = (data: unknown): {[key: string]: MappingSource} => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return {};
+    }
+
+    const validMappings: {[key: string]: MappingSource} = {};
+
+    for (const [key, value] of Object.entries(data)) {
+        const validSource = validateMappingSource(value);
+        if (validSource) {
+            validMappings[key] = validSource;
+        }
+    }
+
+    return validMappings;
+};
+
+// Validate array mappings (for group arrays) - Filter out incomplete mappings
 const validateArrayMappings = (data: unknown): Array<{[key: string]: MappingSource}> => {
     if (!data || !Array.isArray(data)) {
-        console.warn('Array mappings data is not an array, returning empty array');
         return [];
     }
 
     const validMappings: Array<{[key: string]: MappingSource}> = [];
 
-    data.forEach((item, index) => {
-        try {
-            if (!item || typeof item !== 'object') {
-                console.warn(`Invalid array mapping item at index ${index} - not an object`);
-                return;
-            }
+    data.forEach((item) => {
+        if (!item || typeof item !== 'object') {
+            return;
+        }
 
-            const validItem: {[key: string]: MappingSource} = {};
-            let hasValidMapping = false;
+        const validItem: {[key: string]: MappingSource} = {};
 
-            for (const [key, value] of Object.entries(item)) {
-                try {
-                    const validSource = validateMappingSource(value);
-                    validItem[key] = validSource;
-                    hasValidMapping = true;
-                } catch (error) {
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-expect-error
-                    console.warn(`Invalid mapping source at index ${index}, key ${key}:`, error.message);
-                }
+        for (const [key, value] of Object.entries(item)) {
+            const validSource = validateMappingSource(value);
+            if (validSource) {
+                validItem[key] = validSource;
             }
+        }
 
-            if (hasValidMapping && Object.keys(validItem).length > 0) {
-                validMappings.push(validItem);
-            } else {
-                console.warn(`Skipping array mapping item at index ${index} - no valid mappings found`);
-            }
-        } catch (error) {
-            console.warn(`Error processing array mapping item at index ${index}:`, error);
+        // Only add instance if it has at least one complete mapping
+        if (Object.keys(validItem).length > 0) {
+            validMappings.push(validItem);
         }
     });
 
     return validMappings;
 };
 
-// Validate mapping data with strict backend compatibility
+// Validate mapping data - Clean up before sending to backend
 const validateMappingData = (data: MappingExportData): MappingExportData => {
     if (!data) {
         throw new Error('Data is required');
@@ -105,40 +102,24 @@ const validateMappingData = (data: MappingExportData): MappingExportData => {
         throw new Error('Mappings are required and must be an object');
     }
 
-    // Validate mappings structure with backend expectations
-    const validatedMappings: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>} = {};
-    let hasValidMappings = false;
+    const validatedMappings: {[key: string]: any} = {};
 
     for (const [key, value] of Object.entries(data.mappings)) {
-        try {
-            if (key === 'guarantors' || key === 'joints' || key === 'assets') {
-                // These should be arrays
-                const validatedArray = validateArrayMappings(value);
-                if (validatedArray.length > 0) {
-                    validatedMappings[key] = validatedArray;
-                    hasValidMappings = true;
-                } else {
-                    console.warn(`Skipping empty ${key} array`);
-                }
-            } else {
-                // Regular mappings should be MappingSource objects
-                try {
-                    const validatedSource = validateMappingSource(value);
-                    validatedMappings[key] = validatedSource;
-                    hasValidMappings = true;
-                } catch (error) {
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-expect-error
-                    console.warn(`Skipping invalid mapping for key "${key}":`, error.message);
-                }
+        if (key === 'base') {
+            const validatedBase = validateObjectMappings(value);
+            if (Object.keys(validatedBase).length > 0) {
+                validatedMappings[key] = validatedBase;
             }
-        } catch (error) {
-            console.warn(`Error processing mapping for key "${key}":`, error);
+        } else if (GROUP_KEYS.includes(key)) {
+            const validatedArray = validateArrayMappings(value);
+            if (validatedArray.length > 0) {
+                validatedMappings[key] = validatedArray;
+            }
         }
     }
 
-    if (!hasValidMappings) {
-        throw new Error('No valid mappings found - all mappings have missing or empty required fields (file, sheet, column)');
+    if (Object.keys(validatedMappings).length === 0) {
+        throw new Error('No valid mappings found - all mappings are incomplete (missing file, sheet, or column)');
     }
 
     return {
@@ -147,35 +128,16 @@ const validateMappingData = (data: MappingExportData): MappingExportData => {
     };
 };
 
-// Validate backend connection
-export const testBackendConnection = async (): Promise<boolean> => {
-    try {
-        const response = await fetch(API_ENDPOINTS.health, {
-            method: 'GET',
-            headers: headers
-        });
-
-        if (!response.ok) {
-            return false;
-        }
-
-        const data = await response.json();
-        return data.message && data.message.includes('running');
-    } catch (error) {
-        console.error('Backend connection test failed:', error);
-        return false;
-    }
-};
-
-// Save mapping export with backend compatibility
+// Save mapping export
 export const saveMappingExport = async (data: MappingExportData): Promise<MappingExportResponse> => {
     try {
-        // Validate and sanitize input data
+        console.log('=== RAW INPUT DATA ===');
+        console.log(JSON.stringify(data, null, 2));
+
         const validatedData = validateMappingData(data);
 
-        console.log("Validated mapping export", validatedData);
-
-        console.log('Sending validated payload to backend:', JSON.stringify(validatedData, null, 2));
+        console.log('=== CLEANED DATA (sending to backend) ===');
+        console.log(JSON.stringify(validatedData, null, 2));
 
         const response = await fetch(API_ENDPOINTS.mappings, {
             method: 'POST',
@@ -184,52 +146,43 @@ export const saveMappingExport = async (data: MappingExportData): Promise<Mappin
         });
 
         console.log('Response status:', response.status);
-        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('=== BACKEND ERROR ===');
+            console.error('Status:', response.status);
+            console.error('Response:', errorText);
+
             let errorMessage = 'Unknown error';
-
             try {
-                const errorText = await response.text();
-                console.log('Error response text:', errorText);
-
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    console.log('Parsed error JSON:', errorJson);
-
-                    if (errorJson.detail) {
-                        if (typeof errorJson.detail === 'string') {
-                            errorMessage = errorJson.detail;
-                        } else if (Array.isArray(errorJson.detail)) {
-                            // FastAPI validation errors format
-                            const errorDetails = errorJson.detail.map((err: { string: string }) => err.string);
-                            errorMessage = `Validation error: ${errorDetails}`;
-                        } else {
-                            errorMessage = JSON.stringify(errorJson.detail);
-                        }
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.detail) {
+                    if (typeof errorJson.detail === 'string') {
+                        errorMessage = errorJson.detail;
+                    } else if (Array.isArray(errorJson.detail)) {
+                        errorMessage = errorJson.detail.map((err: any) =>
+                            `${err.loc ? err.loc.join('.') : ''}: ${err.msg || JSON.stringify(err)}`
+                        ).join('; ');
                     } else {
-                        errorMessage = errorText || `HTTP ${response.status}: ${response.statusText}`;
+                        errorMessage = JSON.stringify(errorJson.detail);
                     }
-                } 
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                catch (parseError) {
-                    errorMessage = errorText || `HTTP ${response.status}: ${response.statusText}`;
+                } else {
+                    errorMessage = errorText || `HTTP ${response.status}`;
                 }
-            } catch (textError) {
-                console.error('Could not read response text:', textError);
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            } catch {
+                errorMessage = errorText || `HTTP ${response.status}`;
             }
 
             throw new Error(`Failed to save mapping: ${errorMessage}`);
         }
 
         const result: MappingExportResponse = await response.json();
-        console.log('Success response:', result);
+        console.log('✅ Success:', result);
         toast.success('Saved mapping successfully!');
         return result;
     } catch (error) {
         console.error('Save mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving mapping. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving mapping';
         toast.error(errorMessage);
         throw error;
     }
@@ -248,20 +201,17 @@ export const getMappingExports = async (skip: number = 0, limit: number = 100): 
             let errorMessage = 'Unknown error';
             try {
                 const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
-            }
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            catch (parseError) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}`;
             }
             throw new Error(`Failed to fetch mappings: ${errorMessage}`);
         }
 
-        const data: MappingExportResponse[] = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Get mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mappings. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mappings';
         toast.error(errorMessage);
         throw error;
     }
@@ -283,10 +233,9 @@ export const deleteMappingExport = async (id: string): Promise<void> => {
             let errorMessage = 'Unknown error';
             try {
                 const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}`;
             }
             throw new Error(`Failed to delete mapping: ${errorMessage}`);
         }
@@ -294,7 +243,7 @@ export const deleteMappingExport = async (id: string): Promise<void> => {
         toast.success('Deleted mapping successfully!');
     } catch (error) {
         console.error('Delete mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mapping. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mapping';
         toast.error(errorMessage);
         throw error;
     }
@@ -317,10 +266,9 @@ export const deleteMappingExports = async (ids: string[]): Promise<void> => {
             let errorMessage = 'Unknown error';
             try {
                 const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}`;
             }
             throw new Error(`Failed to delete mappings: ${errorMessage}`);
         }
@@ -333,7 +281,7 @@ export const deleteMappingExports = async (ids: string[]): Promise<void> => {
         }
     } catch (error) {
         console.error('Batch delete mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mappings. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mappings';
         toast.error(errorMessage);
         throw error;
     }
@@ -355,30 +303,28 @@ export const getMappingExportById = async (id: string): Promise<MappingExportRes
             let errorMessage = 'Unknown error';
             try {
                 const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}`;
             }
             throw new Error(`Failed to fetch mapping: ${errorMessage}`);
         }
 
-        const data: MappingExportResponse = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Get mapping export by ID error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mapping. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mapping';
         toast.error(errorMessage);
         throw error;
     }
 };
 
-// Update mapping export with backend compatibility
+// Update mapping export
 export const updateMappingExport = async (
     id: string,
     data: {
         name?: string;
-        mappings?: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>};
+        mappings?: {[key: string]: any};
     }
 ): Promise<MappingExportResponse> => {
     try {
@@ -386,7 +332,6 @@ export const updateMappingExport = async (
             throw new Error('Record ID is required');
         }
 
-        // Only include non-empty fields in the update
         const payload: { [key: string]: unknown } = {};
 
         if (data.name && data.name.trim()) {
@@ -394,31 +339,23 @@ export const updateMappingExport = async (
         }
 
         if (data.mappings !== undefined) {
-            // Validate mappings structure
-            const validatedMappings: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>} = {};
-            let hasValidMappings = false;
+            const validatedMappings: {[key: string]: any} = {};
 
             for (const [key, value] of Object.entries(data.mappings)) {
-                try {
-                    if (key === 'guarantors' || key === 'joints' || key === 'assets') {
-                        const validatedArray = validateArrayMappings(value);
-                        if (validatedArray.length > 0) {
-                            validatedMappings[key] = validatedArray;
-                            hasValidMappings = true;
-                        }
-                    } else {
-                        const validatedSource = validateMappingSource(value);
-                        validatedMappings[key] = validatedSource;
-                        hasValidMappings = true;
+                if (key === 'base') {
+                    const validatedBase = validateObjectMappings(value);
+                    if (Object.keys(validatedBase).length > 0) {
+                        validatedMappings[key] = validatedBase;
                     }
-                } catch (error) {
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-expect-error
-                    console.warn(`Skipping invalid mapping for key "${key}":`, error.message);
+                } else if (GROUP_KEYS.includes(key)) {
+                    const validatedArray = validateArrayMappings(value);
+                    if (validatedArray.length > 0) {
+                        validatedMappings[key] = validatedArray;
+                    }
                 }
             }
 
-            if (hasValidMappings) {
+            if (Object.keys(validatedMappings).length > 0) {
                 payload.mappings = validatedMappings;
             } else {
                 throw new Error('No valid mappings found for update');
@@ -439,10 +376,9 @@ export const updateMappingExport = async (
             let errorMessage = 'Unknown error';
             try {
                 const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}`;
             }
             throw new Error(`Failed to update mapping: ${errorMessage}`);
         }
@@ -452,7 +388,7 @@ export const updateMappingExport = async (
         return result;
     } catch (error) {
         console.error('Update mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while updating mapping. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while updating mapping';
         toast.error(errorMessage);
         throw error;
     }
@@ -475,19 +411,17 @@ export const searchMappingExports = async (
             let errorMessage = 'Unknown error';
             try {
                 const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}: ${response.statusText}`;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (parseError) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
+            } catch {
+                errorMessage = `HTTP ${response.status}`;
             }
             throw new Error(`Failed to search mappings: ${errorMessage}`);
         }
 
-        const data: MappingExportResponse[] = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Search mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while searching mappings. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while searching mappings';
         toast.error(errorMessage);
         throw error;
     }
@@ -505,17 +439,36 @@ export const getMappingStats = async (): Promise<{
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json();
-        return data;
+        return await response.json();
     } catch (error) {
         console.error('Get mapping stats failed:', error);
         return {
             total_mappings: 0,
             timestamp: new Date().toISOString()
         };
+    }
+};
+
+// Validate backend connection
+export const testBackendConnection = async (): Promise<boolean> => {
+    try {
+        const response = await fetch(API_ENDPOINTS.health, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (!response.ok) {
+            return false;
+        }
+
+        const data = await response.json();
+        return data.message && data.message.includes('running');
+    } catch (error) {
+        console.error('Backend connection test failed:', error);
+        return false;
     }
 };
 
@@ -532,7 +485,7 @@ export const checkBackendHealth = async (): Promise<{
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}`);
         }
 
         const data = await response.json();
@@ -569,14 +522,8 @@ export const formatDate = (dateString: string): string => {
     }
 };
 
-// Export type definitions for use in other files
-export type {
-    MappingSource,
-    MappingExportData,
-    MappingExportResponse
-};
+export type { MappingSource, MappingExportData, MappingExportResponse };
 
-// Export all functions as default object for backward compatibility
 export default {
     saveMappingExport,
     getMappingExports,

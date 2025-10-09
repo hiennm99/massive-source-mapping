@@ -1,7 +1,6 @@
-// hooks/useMappingLogic.ts - Fixed version
 import React, { useState, useCallback, useEffect } from 'react';
-import type {SourceColumn, ColumnMapping, DestinationTable, MappingSource, ExportFormat} from "../types";
-
+import type { SourceColumn, ColumnMapping, DestinationTable, MappingSource, ExportFormat } from "../types";
+import { COLUMN_GROUPS, BASE_COLUMNS } from '../config/columnGroups';
 
 export const useMappingLogic = () => {
     const [mappings, setMappings] = useState<ColumnMapping[]>([]);
@@ -84,22 +83,19 @@ export const useMappingLogic = () => {
         setMappings(prev => prev.filter(m => m.id !== mappingId));
     }, []);
 
-    // FIXED: Helper function to create a proper MappingSource object with validation
+    // Helper function to create a proper MappingSource object
     const createMappingSource = useCallback((mapping: ColumnMapping): MappingSource | null => {
-        // Validate the mapping structure first
         if (!mapping || !mapping.source) {
             console.warn('Invalid mapping structure:', mapping);
             return null;
         }
 
-        // Ensure all properties exist and are strings
         const file = mapping.source.file || '';
         const sheet = mapping.source.sheet || '';
         const column = mapping.source.value || '';
 
-        // Validate that all required fields have meaningful values
-        if (!file.trim() || !sheet.trim() || !column.trim()) {
-            console.warn('Invalid mapping source data - missing required fields:', { file, sheet, column });
+        // Return null if all fields are empty
+        if (!file.trim() && !sheet.trim() && !column.trim()) {
             return null;
         }
 
@@ -110,33 +106,34 @@ export const useMappingLogic = () => {
         };
     }, []);
 
-    // FIXED: Convert internal mappings to export format with proper validation
+    // Convert internal mappings to export format - ONLY EXPORT MAPPED FIELDS
     const exportMappings = useCallback((): ExportFormat => {
         const now = new Date();
-        const timeString = now.toLocaleTimeString('en-GB', { hour12: false });
+        const timeString = now.toLocaleTimeString('en-GB', {hour12: false});
         const dateString = now.toLocaleDateString('en-GB');
 
         const result: ExportFormat = {
             id: crypto.randomUUID(),
             name: `Mapping Export - ${timeString} ${dateString}`,
-            created_at: now.toISOString().slice(0, 19).replace('T', ' '),
+            created_at: now.toISOString(),
+            updated_at: now.toISOString(),
             mappings: {}
         };
 
-        // Validate we have mappings to process
         if (!mappings || mappings.length === 0) {
             console.warn('No mappings to export');
             return result;
         }
 
-        // Separate mappings by type
-        const guarantorMappings: { [key: number]: {[key: string]: MappingSource} } = {};
-        const jointMappings: { [key: number]: {[key: string]: MappingSource} } = {};
-        const assetMappings: { [key: number]: {[key: string]: MappingSource} } = {};
+        // Initialize storage
+        const groupMappings: {
+            [groupKey: string]: { [instanceNumber: number]: { [field: string]: MappingSource } }
+        } = {};
+        const baseMappings: { [key: string]: MappingSource } = {};
 
+        // Process all mappings
         mappings.forEach(mapping => {
             try {
-                // Skip invalid mappings
                 if (!mapping || !mapping.destination || !mapping.destination.column) {
                     console.warn('Skipping invalid mapping:', mapping);
                     return;
@@ -145,97 +142,105 @@ export const useMappingLogic = () => {
                 const destColumn = mapping.destination.column;
                 const mappingSource = createMappingSource(mapping);
 
-                // Skip if we couldn't create a valid mapping source
+                // Skip empty mappings
                 if (!mappingSource) {
-                    console.warn('Skipping mapping with invalid source:', mapping);
                     return;
                 }
 
-                // Check if it's a guarantor column (pattern: guarantor_N_field or guarantor_field)
-                const guarantorMatch = destColumn.match(/^guarantor(?:_(\d+))?_(.+)$/);
-                if (guarantorMatch) {
-                    const number = guarantorMatch[1] ? parseInt(guarantorMatch[1]) : 1;
-                    const fieldName = `guarantor_${guarantorMatch[2]}`;
+                // Check if it's a base column
+                if (BASE_COLUMNS.includes(destColumn)) {
+                    baseMappings[destColumn] = mappingSource;
+                    return;
+                }
 
-                    if (!guarantorMappings[number]) {
-                        guarantorMappings[number] = {};
+                // Check if it belongs to any group
+                let matched = false;
+                for (const group of COLUMN_GROUPS) {
+                    if (group.isMultiInstance) {
+                        // Pattern: prefix_number_field (e.g., address_1_street)
+                        const regex = new RegExp(`^${group.prefix}_(\\d+)_(.+)$`);
+                        const match = destColumn.match(regex);
+
+                        if (match) {
+                            const instanceNumber = parseInt(match[1]);
+                            const fieldName = match[2];
+
+                            if (!groupMappings[group.key]) {
+                                groupMappings[group.key] = {};
+                            }
+                            if (!groupMappings[group.key][instanceNumber]) {
+                                groupMappings[group.key][instanceNumber] = {};
+                            }
+
+                            groupMappings[group.key][instanceNumber][fieldName] = mappingSource;
+                            matched = true;
+                            break;
+                        }
+                    } else {
+                        // Pattern: prefix_field
+                        const regex = new RegExp(`^${group.prefix}_(.+)$`);
+                        const match = destColumn.match(regex);
+
+                        if (match) {
+                            const fieldName = match[1];
+
+                            if (!groupMappings[group.key]) {
+                                groupMappings[group.key] = {};
+                            }
+                            if (!groupMappings[group.key][1]) {
+                                groupMappings[group.key][1] = {};
+                            }
+
+                            groupMappings[group.key][1][fieldName] = mappingSource;
+                            matched = true;
+                            break;
+                        }
                     }
-                    guarantorMappings[number][fieldName] = mappingSource;
-                    return;
                 }
 
-                // Check if it's a joint column (pattern: joint_N_field or joint_field)
-                const jointMatch = destColumn.match(/^joint(?:_(\d+))?_(.+)$/);
-                if (jointMatch) {
-                    const number = jointMatch[1] ? parseInt(jointMatch[1]) : 1;
-                    const fieldName = `joint_${jointMatch[2]}`;
-
-                    if (!jointMappings[number]) {
-                        jointMappings[number] = {};
-                    }
-                    jointMappings[number][fieldName] = mappingSource;
-                    return;
+                if (!matched) {
+                    console.warn('Column does not match any group or base column:', destColumn);
                 }
-
-                // Check if it's an asset column (pattern: asset_N_field or asset_field)
-                const assetMatch = destColumn.match(/^asset(?:_(\d+))?_(.+)$/);
-                if (assetMatch) {
-                    const number = assetMatch[1] ? parseInt(assetMatch[1]) : 1;
-                    const fieldName = `asset_${assetMatch[2]}`;
-
-                    if (!assetMappings[number]) {
-                        assetMappings[number] = {};
-                    }
-                    assetMappings[number][fieldName] = mappingSource;
-                    return;
-                }
-
-                // Regular column (main borrower fields)
-                result.mappings[destColumn] = mappingSource;
             } catch (error) {
                 console.error('Error processing mapping:', mapping, error);
             }
         });
 
-        // Convert guarantor mappings to array format
-        if (Object.keys(guarantorMappings).length > 0) {
-            const guarantorArray = Object.keys(guarantorMappings)
-                .sort((a, b) => parseInt(a) - parseInt(b))
-                .map(key => guarantorMappings[parseInt(key)])
-                .filter(item => item && Object.keys(item).length > 0); // Filter out empty objects
+        // Add base mappings only if there are any
+        if (Object.keys(baseMappings).length > 0) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            result.mappings.base = baseMappings;
+        }
 
-            if (guarantorArray.length > 0) {
-                result.mappings.guarantors = guarantorArray;
+        // Convert group mappings to array format - only non-empty instances
+        for (const group of COLUMN_GROUPS) {
+            const instances = groupMappings[group.key];
+
+            if (instances && Object.keys(instances).length > 0) {
+                const instanceArray = [];
+
+                const sortedNumbers = Object.keys(instances)
+                    .map(n => parseInt(n))
+                    .sort((a, b) => a - b);
+
+                for (const num of sortedNumbers) {
+                    const instanceFields = instances[num];
+
+                    // Only add if there are fields with data
+                    if (Object.keys(instanceFields).length > 0) {
+                        instanceArray.push(instanceFields);
+                    }
+                }
+
+                // Only add group if it has at least one instance with data
+                if (instanceArray.length > 0) {
+                    result.mappings[group.key] = instanceArray;
+                }
             }
         }
 
-        // Convert joint mappings to array format
-        if (Object.keys(jointMappings).length > 0) {
-            const jointArray = Object.keys(jointMappings)
-                .sort((a, b) => parseInt(a) - parseInt(b))
-                .map(key => jointMappings[parseInt(key)])
-                .filter(item => item && Object.keys(item).length > 0); // Filter out empty objects
-
-            if (jointArray.length > 0) {
-                result.mappings.joints = jointArray;
-            }
-        }
-
-        // Convert asset mappings to array format
-        if (Object.keys(assetMappings).length > 0) {
-            const assetArray = Object.keys(assetMappings)
-                .sort((a, b) => parseInt(a) - parseInt(b))
-                .map(key => assetMappings[parseInt(key)])
-                .filter(item => item && Object.keys(item).length > 0); // Filter out empty objects
-
-            if (assetArray.length > 0) {
-                result.mappings.assets = assetArray;
-            }
-        }
-
-        // Log the final result for debugging
         console.log('Final export mappings:', JSON.stringify(result, null, 2));
-
         return result;
     }, [mappings, createMappingSource]);
 
@@ -261,95 +266,51 @@ export const useMappingLogic = () => {
         let idCounter = Date.now();
 
         try {
-            Object.entries(importData.mappings).forEach(([key, value]) => {
-                if (key === 'guarantors' && Array.isArray(value)) {
-                    value.forEach((guarantor, index) => {
-                        Object.entries(guarantor).forEach(([field, source]) => {
-                            if (source && source.file && source.sheet && source.column) {
-                                const columnName = `guarantor_${index + 1}_${field.replace('guarantor_', '')}`;
-
-                                newMappings.push({
-                                    id: idCounter++,
-                                    
-                                    source: {
-                                        file: source.file,
-                                        sheet: source.sheet,
-                                        value: source.column
-                                    },
-                                    destination: {
-                                        table: 'default',
-                                        column: columnName
-                                    }
-                                });
-                            }
-                        });
-                    });
-                } else if (key === 'joints' && Array.isArray(value)) {
-                    value.forEach((joint, index) => {
-                        Object.entries(joint).forEach(([field, source]) => {
-                            if (source && source.file && source.sheet && source.column) {
-                                const columnName = `joint_${index + 1}_${field.replace('joint_', '')}`;
-                                newMappings.push({
-                                    id: idCounter++,
-                                    source: {
-                                        file: source.file,
-                                        sheet: source.sheet,
-                                        value: source.column
-                                    },
-                                    destination: {
-                                        table: 'default',
-                                        column: columnName
-                                    }
-                                });
-                            }
-                        });
-                    });
-                } else if (key === 'assets' && Array.isArray(value)) {
-                    value.forEach((asset, index) => {
-                        Object.entries(asset).forEach(([field, source]) => {
-                            // Validate source before creating mapping
-                            if (source && source.file && source.sheet && source.column) {
-                                const columnName = `asset_${index + 1}_${field.replace('asset_', '')}`;
-                                newMappings.push({
-                                    id: idCounter++,
-                                    source: {
-                                        file: source.file,
-                                        sheet: source.sheet,
-                                        value: source.column
-                                    },
-                                    destination: {
-                                        table: 'default',
-                                        column: columnName
-                                    }
-                                });
-                            }
-                        });
-                    });
-                } else if (!Array.isArray(value) && value && typeof value === 'object') {
-                    if (value.file && value.sheet && value.column) {
+            // Import base mappings
+            if (importData.mappings.base) {
+                Object.entries(importData.mappings.base).forEach(([field, source]) => {
+                    if (source && (source.file || source.sheet || source.column)) {
                         newMappings.push({
                             id: idCounter++,
                             source: {
-                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                                // @ts-expect-error
-                                file: source.file,
-                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                                // @ts-expect-error
-                                sheet: source.sheet,
-                                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                                // @ts-expect-error
-                                value: source.column
+                                file: source.file || '',
+                                sheet: source.sheet || '',
+                                value: source.column || ''
                             },
                             destination: {
                                 table: 'default',
-                                column: key
+                                column: field
                             }
                         });
-                    } else {
-                        console.warn('Invalid mapping source for key:', key, value);
                     }
+                });
+            }
+
+            // Import group mappings
+            for (const group of COLUMN_GROUPS) {
+                const groupData = importData.mappings[group.key];
+                if (Array.isArray(groupData)) {
+                    groupData.forEach((instance, index) => {
+                        Object.entries(instance).forEach(([field, source]) => {
+                            if (source && (source.file || source.sheet || source.column)) {
+                                const columnName = `${group.prefix}_${index + 1}_${field}`;
+                                newMappings.push({
+                                    id: idCounter++,
+                                    source: {
+                                        file: source.file || '',
+                                        sheet: source.sheet || '',
+                                        value: source.column || ''
+                                    },
+                                    destination: {
+                                        table: 'default',
+                                        column: columnName
+                                    }
+                                });
+                            }
+                        });
+                    });
                 }
-            });
+            }
 
             setMappings(newMappings);
         } catch (error) {
@@ -357,44 +318,12 @@ export const useMappingLogic = () => {
         }
     }, []);
 
-    // FIXED: Convert internal mappings to service format for API calls with validation
+    // Convert to service format for API calls
     const getMappingsForService = useCallback(() => {
         const exportData = exportMappings();
 
-        // Validate that we have valid mappings
         if (!exportData.mappings || Object.keys(exportData.mappings).length === 0) {
             throw new Error('No valid mappings to export');
-        }
-
-        // Additional validation: check that all mapping sources are valid objects
-        const validateMappings = (mappings: unknown): boolean => {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-expect-error
-            for (const [key, value] of Object.entries(mappings)) {
-                if (key === 'guarantors' || key === 'joints' || key === 'assets') {
-                    if (Array.isArray(value)) {
-                        for (const item of value) {
-                            if (typeof item !== 'object' || !item) {
-                                return false;
-                            }
-                            for (const [, subValue] of Object.entries(item)) {
-                                if (!subValue || typeof subValue !== 'object') {
-                                    return false;
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if (!value || typeof value !== 'object') {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        };
-
-        if (!validateMappings(exportData.mappings)) {
-            throw new Error('Invalid mapping data structure detected');
         }
 
         return {
@@ -408,12 +337,14 @@ export const useMappingLogic = () => {
         id: string;
         name: string;
         created_at: string;
-        mappings: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>};
+        updated_at: string;
+        mappings: any;
     }) => {
         const formattedData: ExportFormat = {
             id: serviceData.id,
             name: serviceData.name,
             created_at: serviceData.created_at,
+            updated_at: serviceData.updated_at,
             mappings: serviceData.mappings
         };
         importMappings(formattedData);
