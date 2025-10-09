@@ -71,10 +71,10 @@ export const uploadAndScanExcelFile = async (
             throw new Error('Only Excel files (.xlsx, .xls) are supported');
         }
 
-        // Check file size (50MB limit)
+        // Check file size (100MB limit)
         const fileSizeMB = file.size / (1024 * 1024);
-        if (fileSizeMB > 50) {
-            throw new Error(`File too large: ${fileSizeMB.toFixed(2)}MB. Maximum allowed: 50MB`);
+        if (fileSizeMB > 100) {
+            throw new Error(`File too large: ${fileSizeMB.toFixed(2)}MB. Maximum allowed: 100MB`);
         }
 
         // Prepare form data
@@ -161,8 +161,8 @@ export const uploadAndScanMultipleExcelFiles = async (
             const fileSizeMB = file.size / (1024 * 1024);
             totalSize += fileSizeMB;
 
-            if (fileSizeMB > 50) {
-                throw new Error(`File ${i + 1} too large: ${fileSizeMB.toFixed(2)}MB. Maximum allowed: 50MB`);
+            if (fileSizeMB > 100) {
+                throw new Error(`File ${i + 1} too large: ${fileSizeMB.toFixed(2)}MB. Maximum allowed: 100MB`);
             }
         }
 
@@ -267,8 +267,8 @@ export const validateExcelFile = (file: File): { valid: boolean; error?: string 
     }
 
     const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > 50) {
-        return { valid: false, error: `File too large: ${fileSizeMB.toFixed(2)}MB. Maximum allowed: 50MB` };
+    if (fileSizeMB > 100) {
+        return { valid: false, error: `File too large: ${fileSizeMB.toFixed(2)}MB. Maximum allowed: 100MB` };
     }
 
     return { valid: true };

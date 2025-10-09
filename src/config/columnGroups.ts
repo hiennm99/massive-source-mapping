@@ -21,7 +21,8 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'address',
         isMultiInstance: true,
         fields: [
-            'city', 'street', 'province', 'country', 'postcode'
+            'country', 'province', 'city', 'street',
+            'note'
         ]
     },
     {
@@ -33,7 +34,8 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'contact',
         isMultiInstance: true,
         fields: [
-            'phone_number', 'email', 'is_pec', 'is_verified'
+            'phone_number', 'email', 'is_pec', 'is_verified',
+            'note'
         ]
     },
     {
@@ -45,9 +47,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'bank',
         isMultiInstance: true,
         fields: [
-            'fiscal_code', 'note',
-            'country', 'postcode', 'province', 'city', 'address', 'account_number',
-            'bank_abi', 'bank_cab', 'account_type',
+            'fiscal_code',
+            'country', 'province', 'city', 'street',
+            'bank_name', 'bank_abi', 'bank_cab', 'account_number', 'account_type',
+            'note'
         ]
     },
     {
@@ -59,8 +62,9 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'guarantor',
         isMultiInstance: true,
         fields: [
-            'fiscal_code', 'surname', 'name', 'notes', 'ndg',
-            'type', 'limit'
+            'fiscal_code', 'surname', 'name', 'ndg',
+            'type', 'limit',
+            'note'
         ]
     },
     {
@@ -72,7 +76,8 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'joint',
         isMultiInstance: true,
         fields: [
-            'fiscal_code', 'surname', 'name', 'notes', 'ndg',
+            'fiscal_code', 'surname', 'name', 'ndg',
+            'note'
         ]
     },
     {
@@ -85,9 +90,9 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         isMultiInstance: true,
         fields: [
             'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
-            'country', 'postcode', 'province', 'city', 'address',
+            'country', 'province', 'city', 'street',
             'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain',
-            'notes'
+            'note'
         ]
     },
     {
@@ -100,11 +105,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         isMultiInstance: true,
         fields: [
             'reference', 'pension_category', 'employer_name', 'start_date', 'end_date',
-            'income_range', 'monthly_income', 'work_activity_notes',
-            'legal_street_type', 'legal_street', 'legal_street_number', 'legal_address',
-            'legal_city', 'legal_postcode', 'legal_province', 'employer_vat_number', 'employer_tax_code',
-            'operation_street_type', 'operation_street', 'operation_street_number', 'operation_address',
-            'operation_city', 'operation_postcode', 'operation_province', 'employer_phone', 'employer_fax'
+            'income_range', 'monthly_income', 'work_activity_notes', 'employer_vat_number', 'employer_tax_code', 'employer_phone', 'employer_fax',
+            'legal_street_type', 'legal_street', 'legal_street_number', 'legal_at', 'legal_city', 'legal_province',
+            'operation_street_type', 'operation_street', 'operation_street_number', 'operation_at', 'operation_city', 'operation_province',
+            'note'
         ]
     },
     {
@@ -114,19 +118,22 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         color: 'red',
         maxInstances: 2,
         prefix: 'finance',
-        isMultiInstance: true,
+        isMultiInstance: false, // Changed to false - single instance group
         fields: [
-            'supplier_evaluation', 'bank_account', 'ongoing_garnishments', 'garnishment_amount',
-            'garnishment_expiry', 'garnishment_notes', 'ongoing_transfers', 'transfer_amount',
-            'transfer_expiry', 'transfer_notes'
+            'supplier_evaluation', 'bank_account',
+            'ongoing_garnishments', 'garnishment_amount', 'garnishment_expiration_date', 'garnishment_notes',
+            'ongoing_assignments', 'assignment_amount', 'assignment_expiration_date', 'assignment_notes',
+            'fixed_term_contract_expiry_date', 'contract_type',
+            'note'
         ]
     }
 ];
 
 // Base columns that don't belong to any group - ADDED created_date
 export const BASE_COLUMNS = [
-    'fiscal_code', 'surname', 'name', 'notes',
-    'ndg', 'gbv', 'dbt_date', 'originator', 'credit_type', 'is_verified', 'created_date'
+    'fiscal_code', 'surname', 'name', 'vat_number',
+    'ndg', 'gbv', 'dbt_data', 'originator', 'credit_type', 'is_verified', 'created_date',
+    'note'
 ];
 
 // Add the missing ALL_BASE_COLUMNS export

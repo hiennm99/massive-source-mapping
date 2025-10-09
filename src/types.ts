@@ -43,6 +43,7 @@ export interface ExportFormat {
     id: string;
     name: string;
     created_at: string;
+    updated_at?: string;
     mappings: {[key: string]: MappingSource | Array<{[key: string]: MappingSource}>};
 }
 
