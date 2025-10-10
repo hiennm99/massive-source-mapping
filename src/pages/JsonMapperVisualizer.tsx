@@ -101,13 +101,10 @@ const JsonMapperVisualizer: React.FC = () => {
             const result = await exportMappings(mappings, destinationTables);
 
             if (result) {
-                console.log('Export successful, clearing mappings after delay...');
+                console.log('Export successful, clearing mappings only...');
                 setTimeout(() => {
-                    setMappings([]);
-                    setJsonData([]); // Clear data to show upload screen
-                    setExpandedNodes(new Set());
-                    setSourceGlobalFilter('');
-                    console.log('Mappings cleared, back to upload');
+                    setMappings([]); // Only clear mappings, keep data and UI state
+                    console.log('Mappings cleared, ready for new mappings');
                 }, 1000);
             }
         } catch (error) {
