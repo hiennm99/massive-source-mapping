@@ -48,6 +48,14 @@ export const useMappingLogic = () => {
         ).length;
     }, [mappings]);
 
+    // NEW: Helper function to check if a destination column is already mapped
+    const isDestinationMapped = useCallback((destinationTable: string, destinationColumn: string): boolean => {
+        return mappings.some(mapping =>
+            mapping.destination.table === destinationTable &&
+            mapping.destination.column === destinationColumn
+        );
+    }, [mappings]);
+
     // Drag and Drop handlers
     const handleDragStart = useCallback((e: React.DragEvent<HTMLDivElement>, item: SourceColumn): void => {
         setDraggedItem(item);
@@ -66,18 +74,44 @@ export const useMappingLogic = () => {
     ): void => {
         e.preventDefault();
         if (draggedItem) {
-            const mapping: ColumnMapping = {
-                id: Date.now(),
-                source: draggedItem,
-                destination: {
-                    table: destinationTable.name,
-                    column: destinationColumn
-                }
-            };
-            setMappings(prev => [...prev, mapping]);
+            // MODIFIED: Check if destination column is already mapped
+            const existingMapping = mappings.find(m =>
+                m.destination.table === destinationTable.name &&
+                m.destination.column === destinationColumn
+            );
+
+            if (existingMapping) {
+                // Replace the existing mapping instead of adding a new one
+                const mapping: ColumnMapping = {
+                    id: Date.now(),
+                    source: draggedItem,
+                    destination: {
+                        table: destinationTable.name,
+                        column: destinationColumn
+                    }
+                };
+
+                // Remove old mapping and add new one
+                setMappings(prev => [
+                    ...prev.filter(m => m.id !== existingMapping.id),
+                    mapping
+                ]);
+            } else {
+                // Add new mapping if destination is not mapped yet
+                const mapping: ColumnMapping = {
+                    id: Date.now(),
+                    source: draggedItem,
+                    destination: {
+                        table: destinationTable.name,
+                        column: destinationColumn
+                    }
+                };
+                setMappings(prev => [...prev, mapping]);
+            }
+
             setDraggedItem(null);
         }
-    }, [draggedItem]);
+    }, [draggedItem, mappings]);
 
     const removeMapping = useCallback((mappingId: number): void => {
         setMappings(prev => prev.filter(m => m.id !== mappingId));
@@ -375,6 +409,7 @@ export const useMappingLogic = () => {
         getSheetMappingCount,
         isColumnMapped,
         getColumnMappingCount,
+        isDestinationMapped, // NEW: Export this helper
 
         // Drag and Drop
         handleDragStart,
