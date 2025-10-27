@@ -1,30 +1,30 @@
-// JsonMapperVisualizer.tsx - Updated with ExcelUpload integration
+// MappingPage.tsx - Feature-based architecture
 import React, { useState, useCallback } from 'react';
 import { Table, Save, Loader2, Upload } from 'lucide-react';
-import Navbar from "../components/Navbar.tsx";
 
-// Import custom hooks
-import { useMappingLogic } from '../hooks/useMappingLogic';
-import { useDestinationTables } from '../hooks/useDestinationTables.ts';
-import { useExportLogic } from '../hooks/useExportLogic';
+// Shared components
+import { Navbar, ToastNotification } from '@components';
 
-// Import components
-import ExcelUpload from '../components/ExcelUpload'; // Add this import
-import { SourceDataPanel } from '../components/SourceDataPanel';
-import { DestinationTablesPanel } from '../components/DestinationTablesPanel';
-import { SavingOverlay } from '../components/SavingOverlay';
-import { ParsingOverlay } from "../components/ParsingOverlay.tsx";
-import { ToastNotification } from '../components/ToastNotification';
-import { PanelHeader } from '../components/PanelHeader';
-import type { FileData } from '../types';
+// Feature-specific hooks
+import { useMappingLogic, useDestinationTables, useExportLogic } from '@features/mapping';
 
-const JsonMapperVisualizer: React.FC = () => {
-    // Change this to use dynamic data from ExcelUpload
-    const [jsonData, setJsonData] = useState<FileData[]>([]); // Start with empty array
-    const [isUploadLoading, setIsUploadLoading] = useState(false); // Add upload loading state
+// Feature-specific components
+import { 
+    ExcelUploader, 
+    SourcePanel, 
+    DestinationPanel, 
+    SavingOverlay, 
+    ParsingOverlay,
+    PanelHeader
+} from '../components';
+
+// Types
+import type { FileData } from '../../../types.ts';
+
+const MappingPage: React.FC = () => {
+    const [jsonData, setJsonData] = useState<FileData[]>([]);
+    const [isUploadLoading, setIsUploadLoading] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-
-    // Add source filter state
     const [sourceGlobalFilter, setSourceGlobalFilter] = useState<string>('');
     const [, setExportMessage] = useState<string>('');
 
@@ -57,11 +57,10 @@ const JsonMapperVisualizer: React.FC = () => {
         exportMappings
     } = useExportLogic();
 
-    // Handler for when ExcelUpload loads schema data
+    // Handler for when ExcelUploader loads schema data
     const handleSchemaLoaded = useCallback((schemas: FileData[]) => {
         console.log('Schema loaded:', schemas);
         setJsonData(schemas);
-        // Auto-expand first file when data is loaded
         if (schemas.length > 0) {
             setExpandedNodes(new Set(['file-0']));
         }
@@ -70,7 +69,7 @@ const JsonMapperVisualizer: React.FC = () => {
     // Handler to go back to upload
     const handleBackToUpload = useCallback(() => {
         setJsonData([]);
-        setMappings([]); // Clear any existing mappings
+        setMappings([]);
         setExpandedNodes(new Set());
         setSourceGlobalFilter('');
     }, [setMappings]);
@@ -101,7 +100,7 @@ const JsonMapperVisualizer: React.FC = () => {
             if (result) {
                 console.log('Export successful, clearing mappings only...');
                 setTimeout(() => {
-                    setMappings([]); // Only clear mappings, keep data and UI state
+                    setMappings([]);
                     console.log('Mappings cleared, ready for new mappings');
                 }, 1000);
             }
@@ -134,9 +133,9 @@ const JsonMapperVisualizer: React.FC = () => {
 
                 {/* Conditional rendering based on whether data is loaded */}
                 {jsonData.length === 0 ? (
-                    // Show ExcelUpload when no data
+                    // Show ExcelUploader when no data
                     <div className="w-full flex items-center justify-center">
-                        <ExcelUpload
+                        <ExcelUploader
                             onSchemaLoaded={handleSchemaLoaded}
                             isLoading={isUploadLoading}
                             setIsLoading={setIsUploadLoading}
@@ -146,7 +145,7 @@ const JsonMapperVisualizer: React.FC = () => {
                     // Show mapping interface when data is loaded
                     <>
                         {/* Source Data Panel with Filter */}
-                        <SourceDataPanel
+                        <SourcePanel
                             jsonData={jsonData}
                             expandedNodes={expandedNodes}
                             onToggleNode={toggleNode}
@@ -201,7 +200,7 @@ const JsonMapperVisualizer: React.FC = () => {
                                 </div>
                             </PanelHeader>
 
-                            <DestinationTablesPanel
+                            <DestinationPanel
                                 destinationTables={destinationTables}
                                 mappings={mappings}
                                 globalFilter={destinationGlobalFilter}
@@ -219,4 +218,4 @@ const JsonMapperVisualizer: React.FC = () => {
     );
 };
 
-export default JsonMapperVisualizer;
+export { MappingPage };

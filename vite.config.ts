@@ -8,9 +8,15 @@ export default defineConfig({
       react(),
       tailwindcss()
   ],
-    server: {
-        allowedHosts: [
-            'b2f6d8a72807.ngrok-free.app' // Host của ngrok
-        ]
+  resolve: {
+    alias: {
+      '@lib': '/src/lib',
+      '@types': '/src/types',
+      '@features': '/src/features',
+      '@components': '/src/shared/components',
+      '@config': '/src/config',
+      '@utils': '/src/utils',
+      '@assets': '/src/assets',
     }
+  }
 })

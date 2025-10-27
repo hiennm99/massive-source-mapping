@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import type { ColumnMapping } from '../types';
-import { saveMappingExport } from '../services/mappingExportService.ts';
-import { testMappingFormat } from '../utils/formatDebugHelper';
-import { COLUMN_GROUPS, BASE_COLUMNS } from '../config/columnGroups';
+import type { ColumnMapping } from '@types';
+import { saveMappingExport } from '@features/exports-manager';
+import { testMappingFormat } from '@features/mapping';
+import { COLUMN_GROUPS, BASE_COLUMNS } from '@config';
 
 interface MappingSource {
     file: string;

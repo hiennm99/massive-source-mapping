@@ -3,11 +3,11 @@ import { Upload, FileSpreadsheet, Loader2, CheckCircle, AlertCircle, X } from 'l
 import {
     uploadAndScanMultipleExcelFiles,
     validateExcelFiles,
-} from '../services/excelUploadService';
-import type {ExcelUploadProps, UploadedFile} from "../types.ts";
+} from '@features/mapping';
+import type { ExcelUploadProps, UploadedFile } from "@types";
 
 
-const ExcelUpload: React.FC<ExcelUploadProps> = ({
+const ExcelUploader: React.FC<ExcelUploadProps> = ({
                                                      onSchemaLoaded,
                                                      isLoading,
                                                      setIsLoading
@@ -265,4 +265,4 @@ const ExcelUpload: React.FC<ExcelUploadProps> = ({
     );
 };
 
-export default ExcelUpload;
+export default ExcelUploader;

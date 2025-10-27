@@ -28,7 +28,7 @@ export interface DestinationColumn {
 }
 
 export interface ColumnMapping {
-    id: number;
+    id: string;
     source: SourceColumn;
     destination: DestinationColumn;
 }

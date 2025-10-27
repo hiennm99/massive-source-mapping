@@ -1,7 +1,8 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import JsonMapperVisualizer from "./pages/JsonMapperVisualizer.tsx";
-import MappingExportsManager from "./pages/MappingExportsManager.tsx";
+// Feature-based imports
+import { MappingPage } from "./features/mapping";
+import { ExportsManagerPage } from "./features/exports-manager";
 import { Toaster } from 'sonner';
 
 function App() {
@@ -9,8 +10,8 @@ function App() {
         <>
             <Router>
                 <Routes>
-                    <Route path="/" element={<JsonMapperVisualizer />} />
-                    <Route path="/manage" element={<MappingExportsManager />} />
+                    <Route path="/" element={<MappingPage />} />
+                    <Route path="/manage" element={<ExportsManagerPage />} />
                 </Routes>
                 <Toaster position="top-center" richColors />
             </Router>

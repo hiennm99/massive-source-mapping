@@ -249,12 +249,3 @@ export const validateAndSanitize = (data: any): ServiceMappingData => {
 
     return validation.sanitizedData!;
 };
-
-// Export all utility functions
-export default {
-    validateMappingSource,
-    validateArrayMappings,
-    validateServiceMappingData,
-    formatValidationResult,
-    validateAndSanitize
-};

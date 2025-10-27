@@ -1,21 +1,15 @@
-// File: src/services/mappingExportService.ts
-import { toast } from 'sonner';
-import type {MappingExportResponse, MappingSource, MappingExportData, ApiError} from "../types";
-import { COLUMN_GROUPS } from '../config/columnGroups';
+// File: features/exports-manager/services/exportManagerService.ts
+import { apiClient, handleApiError, showSuccessToast } from '@lib';
+import type {MappingExportResponse, MappingSource, MappingExportData} from "@types";
+import { COLUMN_GROUPS } from '@config';
 
-// Backend config
-const BACKEND_URL = 'https://massive-source-mapping-backend-production-b621.up.railway.app';
+// API endpoints
 const API_ENDPOINTS = {
-    mappings: `${BACKEND_URL}/api/mapping-exports`,
-    health: `${BACKEND_URL}/`,
-    stats: `${BACKEND_URL}/api/mapping-exports/stats`,
-    search: `${BACKEND_URL}/api/mapping-exports/search`,
-    batch: `${BACKEND_URL}/api/mapping-exports/batch`
-};
-
-const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    mappings: '/api/mapping-exports',
+    health: '/',
+    stats: '/api/mapping-exports/stats',
+    search: '/api/mapping-exports/search',
+    batch: '/api/mapping-exports/batch'
 };
 
 // Get all group keys for validation
@@ -139,51 +133,15 @@ export const saveMappingExport = async (data: MappingExportData): Promise<Mappin
         console.log('=== CLEANED DATA (sending to backend) ===');
         console.log(JSON.stringify(validatedData, null, 2));
 
-        const response = await fetch(API_ENDPOINTS.mappings, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(validatedData)
-        });
+        const response = await apiClient.post<MappingExportResponse>(API_ENDPOINTS.mappings, validatedData);
 
         console.log('Response status:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('=== BACKEND ERROR ===');
-            console.error('Status:', response.status);
-            console.error('Response:', errorText);
-
-            let errorMessage = 'Unknown error';
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.detail) {
-                    if (typeof errorJson.detail === 'string') {
-                        errorMessage = errorJson.detail;
-                    } else if (Array.isArray(errorJson.detail)) {
-                        errorMessage = errorJson.detail.map((err: any) =>
-                            `${err.loc ? err.loc.join('.') : ''}: ${err.msg || JSON.stringify(err)}`
-                        ).join('; ');
-                    } else {
-                        errorMessage = JSON.stringify(errorJson.detail);
-                    }
-                } else {
-                    errorMessage = errorText || `HTTP ${response.status}`;
-                }
-            } catch {
-                errorMessage = errorText || `HTTP ${response.status}`;
-            }
-
-            throw new Error(`Failed to save mapping: ${errorMessage}`);
-        }
-
-        const result: MappingExportResponse = await response.json();
-        console.log('✅ Success:', result);
-        toast.success('Saved mapping successfully!');
-        return result;
+        console.log('✅ Success:', response.data);
+        showSuccessToast('Saved mapping successfully!');
+        return response.data;
     } catch (error) {
         console.error('Save mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving mapping';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while saving mapping');
         throw error;
     }
 };
@@ -191,28 +149,13 @@ export const saveMappingExport = async (data: MappingExportData): Promise<Mappin
 // Get mapping exports
 export const getMappingExports = async (skip: number = 0, limit: number = 100): Promise<MappingExportResponse[]> => {
     try {
-        const url = `${API_ENDPOINTS.mappings}?skip=${skip}&limit=${limit}`;
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: headers
+        const response = await apiClient.get<MappingExportResponse[]>(API_ENDPOINTS.mappings, {
+            params: { skip, limit }
         });
-
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}`;
-            }
-            throw new Error(`Failed to fetch mappings: ${errorMessage}`);
-        }
-
-        return await response.json();
+        return response.data;
     } catch (error) {
         console.error('Get mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mappings';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while fetching mappings');
         throw error;
     }
 };
@@ -224,27 +167,11 @@ export const deleteMappingExport = async (id: string): Promise<void> => {
             throw new Error('Record ID is required');
         }
 
-        const response = await fetch(`${API_ENDPOINTS.mappings}/${id}`, {
-            method: 'DELETE',
-            headers: headers
-        });
-
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}`;
-            }
-            throw new Error(`Failed to delete mapping: ${errorMessage}`);
-        }
-
-        toast.success('Deleted mapping successfully!');
+        await apiClient.delete(`${API_ENDPOINTS.mappings}/${id}`);
+        showSuccessToast('Deleted mapping successfully!');
     } catch (error) {
         console.error('Delete mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mapping';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while deleting mapping');
         throw error;
     }
 };
@@ -256,33 +183,18 @@ export const deleteMappingExports = async (ids: string[]): Promise<void> => {
             throw new Error('At least one record ID is required');
         }
 
-        const response = await fetch(API_ENDPOINTS.batch, {
-            method: 'DELETE',
-            headers: headers,
-            body: JSON.stringify(ids)
+        const result = await apiClient.delete<any>(API_ENDPOINTS.batch, {
+            data: ids
         });
 
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}`;
-            }
-            throw new Error(`Failed to delete mappings: ${errorMessage}`);
-        }
-
-        const result = await response.json();
-        if (result.success) {
-            toast.success(`Deleted ${result.deleted_count} mappings successfully!`);
+        if (result.data.success) {
+            showSuccessToast(`Deleted ${result.data.deleted_count} mappings successfully!`);
         } else {
-            toast.warning(`Deleted ${result.deleted_count} mappings, ${result.error_count} errors occurred.`);
+            showSuccessToast(`Deleted ${result.data.deleted_count} mappings, ${result.data.error_count} errors occurred.`);
         }
     } catch (error) {
         console.error('Batch delete mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while deleting mappings';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while deleting mappings');
         throw error;
     }
 };
@@ -294,27 +206,11 @@ export const getMappingExportById = async (id: string): Promise<MappingExportRes
             throw new Error('Record ID is required');
         }
 
-        const response = await fetch(`${API_ENDPOINTS.mappings}/${id}`, {
-            method: 'GET',
-            headers: headers
-        });
-
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}`;
-            }
-            throw new Error(`Failed to fetch mapping: ${errorMessage}`);
-        }
-
-        return await response.json();
+        const response = await apiClient.get<MappingExportResponse>(`${API_ENDPOINTS.mappings}/${id}`);
+        return response.data;
     } catch (error) {
         console.error('Get mapping export by ID error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while fetching mapping';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while fetching mapping');
         throw error;
     }
 };
@@ -366,30 +262,12 @@ export const updateMappingExport = async (
             throw new Error('No valid data to update');
         }
 
-        const response = await fetch(`${API_ENDPOINTS.mappings}/${id}`, {
-            method: 'PUT',
-            headers: headers,
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}`;
-            }
-            throw new Error(`Failed to update mapping: ${errorMessage}`);
-        }
-
-        const result: MappingExportResponse = await response.json();
-        toast.success('Updated mapping successfully!');
-        return result;
+        const response = await apiClient.put<MappingExportResponse>(`${API_ENDPOINTS.mappings}/${id}`, payload);
+        showSuccessToast('Updated mapping successfully!');
+        return response.data;
     } catch (error) {
         console.error('Update mapping export error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while updating mapping';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while updating mapping');
         throw error;
     }
 };
@@ -397,32 +275,19 @@ export const updateMappingExport = async (
 // Search mapping exports
 export const searchMappingExports = async (
     query: string,
+    signal?: AbortSignal,
     skip: number = 0,
     limit: number = 100
 ): Promise<MappingExportResponse[]> => {
     try {
-        const url = `${API_ENDPOINTS.search}?query=${encodeURIComponent(query)}&skip=${skip}&limit=${limit}`;
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: headers
+        const response = await apiClient.get<MappingExportResponse[]>(API_ENDPOINTS.search, {
+            params: { query, skip, limit },
+            signal: signal
         });
-
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const error: ApiError = await response.json();
-                errorMessage = typeof error.detail === 'string' ? error.detail : `HTTP ${response.status}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}`;
-            }
-            throw new Error(`Failed to search mappings: ${errorMessage}`);
-        }
-
-        return await response.json();
+        return response.data;
     } catch (error) {
         console.error('Search mapping exports error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred while searching mappings';
-        toast.error(errorMessage);
+        handleApiError(error, 'An error occurred while searching mappings');
         throw error;
     }
 };
@@ -433,16 +298,11 @@ export const getMappingStats = async (): Promise<{
     timestamp: string;
 }> => {
     try {
-        const response = await fetch(API_ENDPOINTS.stats, {
-            method: 'GET',
-            headers: headers
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        return await response.json();
+        const response = await apiClient.get<{
+            total_mappings: number;
+            timestamp: string;
+        }>(API_ENDPOINTS.stats);
+        return response.data;
     } catch (error) {
         console.error('Get mapping stats failed:', error);
         return {
@@ -455,16 +315,8 @@ export const getMappingStats = async (): Promise<{
 // Validate backend connection
 export const testBackendConnection = async (): Promise<boolean> => {
     try {
-        const response = await fetch(API_ENDPOINTS.health, {
-            method: 'GET',
-            headers: headers
-        });
-
-        if (!response.ok) {
-            return false;
-        }
-
-        const data = await response.json();
+        const response = await apiClient.get<any>(API_ENDPOINTS.health);
+        const data = response.data;
         return data.message && data.message.includes('running');
     } catch (error) {
         console.error('Backend connection test failed:', error);
@@ -479,16 +331,8 @@ export const checkBackendHealth = async (): Promise<{
     timestamp: string;
 }> => {
     try {
-        const response = await fetch(API_ENDPOINTS.health, {
-            method: 'GET',
-            headers: headers
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
+        const response = await apiClient.get<any>(API_ENDPOINTS.health);
+        const data = response.data;
         return {
             status: 'healthy',
             message: data.message,

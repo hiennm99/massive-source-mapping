@@ -1,4 +1,4 @@
-import type {MappingSource} from "../services/mappingExportService.ts";
+import type { MappingSource } from "../types";
 
 export interface ColumnGroup {
     name: string;
@@ -16,13 +16,6 @@ export interface TabGroup {
     color: string;
     groups: ColumnGroup[];
 }
-
-// export interface DestinationTablesPanelProps {
-//     mappings: ColumnMapping[];
-//     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-//     onDrop: (e: React.DragEvent<HTMLDivElement>, destinationTable: DestinationTable, destinationColumn: string) => void;
-//     onRemoveMapping: (mappingId: number) => void;
-// }
 
 // Existing types from your app
 export interface ColumnMapping {

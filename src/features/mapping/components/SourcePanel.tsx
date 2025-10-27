@@ -1,6 +1,6 @@
-// components/SourceDataPanel.tsx - Fixed column filtering issue
+// components/SourcePanel.tsx - Fixed column filtering issue
 import { ChevronRight, ChevronDown, Database, File, Sheet, Columns, Check, Search, X } from 'lucide-react';
-import type {FileData, SourceColumn} from '../types';
+import type {FileData, SourceColumn} from '@types';
 import React from "react";
 
 interface SourceDataPanelProps {
@@ -19,7 +19,7 @@ interface SourceDataPanelProps {
     onGlobalFilterChange: (value: string) => void;
 }
 
-export const SourceDataPanel: React.FC<SourceDataPanelProps> = ({
+export const SourcePanel: React.FC<SourceDataPanelProps> = ({
                                                                     jsonData,
                                                                     expandedNodes,
                                                                     onToggleNode,

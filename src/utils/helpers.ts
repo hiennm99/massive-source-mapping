@@ -1,6 +1,6 @@
 // utils/helpers.ts - Utility functions and helpers
 // utils/helpers.ts - Utility functions and helpers
-import type {ColumnMapping, DestinationTable} from '../types';
+import type { ColumnMapping, DestinationTable } from '@types';
 
 /**
  * Extract filename from full path

@@ -1,12 +1,11 @@
-// components/DestinationTablesPanel.tsx - Automated version with CreatedDateInput
-import React, {useState, useEffect} from 'react';
+// components/DestinationPanel.tsx - Automated version with CreatedDateInput
+import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
-import {Trash2, Columns, Search, X, Users} from 'lucide-react';
-import {useDestinationTables} from '../hooks/useDestinationTables';
-import { parseColumnName, getGroupByKey } from '../config/columnGroups';
-import { getGroupIcon } from '../utils/iconHelper.tsx'; // Updated import
-import type {DestinationTable, ColumnMapping} from '../types';
-import {formatColumnName} from "../utils/helpers.ts";
+import { Trash2, Columns, Search, X, Users } from 'lucide-react';
+import { useDestinationTables } from '@features/mapping';
+import { parseColumnName, getGroupByKey } from '@config';
+import { getGroupIcon, formatColumnName } from "@utils";
+import type { DestinationTable, ColumnMapping } from '@types';;
 
 interface ColumnGroup {
     name: string;
@@ -30,7 +29,7 @@ interface DestinationTablesPanelProps {
     mappings: ColumnMapping[],
     onDragOver: (e: React.DragEvent<HTMLDivElement>) => void,
     onDrop: (e: React.DragEvent<HTMLDivElement>, destinationTable: DestinationTable, destinationColumn: string) => void,
-    onRemoveMapping: (mappingId: number) => void,
+    onRemoveMapping: (mappingId: string) => void,
     globalFilter: string,
     onGlobalFilterChange: (value: string) => void,
     getFilteredColumns?: (table: DestinationTable) => string[],
@@ -38,7 +37,7 @@ interface DestinationTablesPanelProps {
     sourceColumns?: string[] // New prop to check if created_date exists in source data
 }
 
-export const DestinationTablesPanel: React.FC<DestinationTablesPanelProps> = ({
+export const DestinationPanel: React.FC<DestinationTablesPanelProps> = ({
                                                                                   mappings,
                                                                                   onDragOver,
                                                                                   onDrop,

@@ -1,13 +1,11 @@
 // src/services/excelUploadService.ts - Updated to match current backend
-import { toast } from 'sonner';
-import type {SheetInfo, FileData, BackendScanResponse, ScanResult} from "../types.ts";
+import { apiClient, handleApiError, showSuccessToast } from '@lib';
+import type {SheetInfo, FileData, BackendScanResponse, ScanResult} from "@types";
 
-// Backend configuration
-const BACKEND_URL = 'https://massive-source-mapping-backend-production-b621.up.railway.app';
-// const BACKEND_URL = 'http://localhost:8000';
+// API endpoints
 const API_ENDPOINTS = {
-    singleUpload: `${BACKEND_URL}/api/excel/scan-upload-gcs`,
-    multipleUpload: `${BACKEND_URL}/api/excel/scan-upload-multiple`
+    singleUpload: '/api/excel/scan-upload-gcs',
+    multipleUpload: '/api/excel/scan-upload-multiple'
 };
 
 // Updated interface to match actual backend response
@@ -86,23 +84,13 @@ export const uploadAndScanExcelFile = async (
         console.log(`Uploading file: ${file.name} (${fileSizeMB.toFixed(2)}MB)`);
 
         // Make API call
-        const response = await fetch(API_ENDPOINTS.multipleUpload, {
-            method: 'POST',
-            body: formData,
+        const response = await apiClient.post<BackendScanResponse>(API_ENDPOINTS.multipleUpload, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
         });
 
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-            }
-            throw new Error(`Upload failed: ${errorMessage}`);
-        }
-
-        const result: BackendScanResponse = await response.json();
+        const result = response.data;
 
         if (!result.success) {
             throw new Error(result.message || 'Scan failed');
@@ -121,14 +109,13 @@ export const uploadAndScanExcelFile = async (
             }))
         };
 
-        toast.success(`Successfully scanned ${file.name} - Found ${result.scan_result.total_sheets} sheets`);
+        showSuccessToast(`Successfully scanned ${file.name} - Found ${result.scan_result.total_sheets} sheets`);
 
         return fileData;
 
     } catch (error) {
         console.error('Excel upload error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to upload Excel file';
-        toast.error(errorMessage);
+        handleApiError(error, 'Failed to upload Excel file');
         throw error;
     }
 };
@@ -181,23 +168,13 @@ export const uploadAndScanMultipleExcelFiles = async (
         console.log(`Uploading ${files.length} files, total size: ${totalSize.toFixed(2)}MB`);
 
         // Make API call
-        const response = await fetch(API_ENDPOINTS.multipleUpload, {
-            method: 'POST',
-            body: formData,
+        const response = await apiClient.post<ActualMultipleResponse>(API_ENDPOINTS.multipleUpload, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
         });
 
-        if (!response.ok) {
-            let errorMessage = 'Unknown error';
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || `HTTP ${response.status}: ${response.statusText}`;
-            } catch {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-            }
-            throw new Error(`Upload failed: ${errorMessage}`);
-        }
-
-        const result: ActualMultipleResponse = await response.json();
+        const result = response.data;
 
         if (!result.success) {
             throw new Error(result.message || 'Batch scan failed');
@@ -231,7 +208,7 @@ export const uploadAndScanMultipleExcelFiles = async (
         // Show results
         if (successfulResults.length > 0) {
             const totalSheets = successfulResults.reduce((sum, file) => sum + file.sheets.length, 0);
-            toast.success(
+            showSuccessToast(
                 `Successfully processed ${successfulResults.length}/${files.length} files. ` +
                 `Found ${totalSheets} total sheets.`
             );
@@ -239,7 +216,7 @@ export const uploadAndScanMultipleExcelFiles = async (
 
         if (errors.length > 0) {
             console.warn('Some files failed to process:', errors);
-            toast.warning(`${errors.length} file(s) failed to process. Check console for details.`);
+            showSuccessToast(`${errors.length} file(s) failed to process. Check console for details.`);
         }
 
         if (successfulResults.length === 0) {
@@ -250,8 +227,7 @@ export const uploadAndScanMultipleExcelFiles = async (
 
     } catch (error) {
         console.error('Multiple Excel upload error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to upload Excel files';
-        toast.error(errorMessage);
+        handleApiError(error, 'Failed to upload Excel files');
         throw error;
     }
 };

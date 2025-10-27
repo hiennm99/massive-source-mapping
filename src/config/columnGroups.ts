@@ -1,5 +1,4 @@
 // src/config/columnGroups.ts - Centralized column group configuration
-
 export interface ColumnGroupDefinition {
     key: string;
     name: string;

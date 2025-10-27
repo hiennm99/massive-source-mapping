@@ -1,7 +1,7 @@
 // src/hooks/useDestinationTables.ts - Automated version using config
 import { useState, useCallback } from 'react';
-import { COLUMN_GROUPS, BASE_COLUMNS, getGroupByKey } from '../config/columnGroups';
-import type { DestinationTable } from '../types';
+import { COLUMN_GROUPS, BASE_COLUMNS, getGroupByKey } from '@config';
+import type { DestinationTable } from '@types';
 
 export interface TableConfig {
     [key: string]: number; // Dynamic keys for each group

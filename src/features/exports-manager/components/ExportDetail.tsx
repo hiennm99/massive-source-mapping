@@ -319,7 +319,7 @@ const useMappingStats = (mappings: MappingExport['mappings']) => {
 };
 
 /** ===== Main Component ===== */
-function BeautifulDetailsModal({
+export function ExportDetail({
                                    selectedExport,
                                    showDetails,
                                    setShowDetails,
@@ -522,4 +522,4 @@ function BeautifulDetailsModal({
     );
 }
 
-export default BeautifulDetailsModal;
+export default ExportDetail;
