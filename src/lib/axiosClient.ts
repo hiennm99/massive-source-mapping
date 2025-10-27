@@ -3,8 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
 // Backend configuration
-const BACKEND_URL = 'https://massive-source-mapping-backend-production-b621.up.railway.app';
-// const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 /**
  * Create and configure axios instance with common settings
