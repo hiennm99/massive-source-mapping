@@ -48,18 +48,32 @@ export const useExportLogic = () => {
     // Convert internal mappings to the new service format
     const convertToServiceFormat = useCallback((mappings: ColumnMapping[]): ServiceMappingData => {
         const now = new Date();
-        const timeString = now.toLocaleTimeString('en-GB', { hour12: false });
-        const dateString = now.toLocaleDateString('en-GB');
-
-        const result: ServiceMappingData = {
-            name: `Mapping Export - ${timeString} ${dateString}`,
-            mappings: {}
-        };
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const timestamp = `${year}_${month}_${day}_${hours}_${minutes}_${seconds}`;
 
         if (!mappings || mappings.length === 0) {
             console.warn('No mappings to export');
-            return result;
+            return {
+                name: `Mapping_Export____${timestamp}`,
+                mappings: {}
+            };
         }
+
+        // Find fiscal_code mapping to extract file name for export name
+        const fiscalCodeMapping = mappings.find(m => m.destination?.column === 'fiscal_code');
+        const sourceFileName = fiscalCodeMapping?.source?.file 
+            ? fiscalCodeMapping.source.file.split('\\').pop()?.replace(/\.[^/.]+$/, '') || 'Unknown'
+            : 'Unknown';
+
+        const result: ServiceMappingData = {
+            name: `${sourceFileName}____${timestamp}`,
+            mappings: {}
+        };
 
         // Initialize group storage
         const groupMappings: { [groupKey: string]: { [instanceNumber: number]: { [field: string]: MappingSource } } } = {};
