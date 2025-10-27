@@ -89,9 +89,11 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         prefix: 'asset',
         isMultiInstance: true,
         fields: [
-            'asset_id', 'type', 'last_evaluation_amount', 'last_evaluation_date',
+            'type', 'ownership',
+            'est_asset_value', 'est_ownership_value',
             'country', 'province', 'city', 'street',
-            'sheet', 'particle', 'sub', 'category', 'square_meter', 'vain',
+            'sheet', 'particle_sub', 'sub', 'dimension', 'category', 'class',
+            'cadastral_tax_base', 'square_meter', 'vain', 'zone', 'compr_avg',
             'note'
         ]
     },

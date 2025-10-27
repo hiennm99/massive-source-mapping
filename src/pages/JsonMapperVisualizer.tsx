@@ -96,9 +96,7 @@ const JsonMapperVisualizer: React.FC = () => {
                 return;
             }
 
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-expect-error
-            const result = await exportMappings(mappings, destinationTables);
+            const result = await exportMappings(mappings);
 
             if (result) {
                 console.log('Export successful, clearing mappings only...');
@@ -110,7 +108,7 @@ const JsonMapperVisualizer: React.FC = () => {
         } catch (error) {
             console.error('Save failed:', error);
         }
-    }, [exportMappings, mappings, destinationTables, setMappings]);
+    }, [exportMappings, mappings, setMappings]);
 
     // Helper function to get mapping count for display
     const getMappingCountDisplay = useCallback((): string => {
