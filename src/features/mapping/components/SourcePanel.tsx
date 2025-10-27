@@ -14,9 +14,11 @@ interface SourceDataPanelProps {
     getSheetMappingCount: (fileName: string, sheetName: string) => number;
     isColumnMapped: (fileName: string, sheetName: string, columnName: string) => boolean;
     getColumnMappingCount: (fileName: string, sheetName: string, columnName: string) => number;
-    // New filter props
+    // Filter props - debounced value for filtering
     globalFilter: string;
     onGlobalFilterChange: (value: string) => void;
+    // Optional: input value for immediate feedback (defaults to globalFilter if not provided)
+    inputValue?: string;
 }
 
 export const SourcePanel: React.FC<SourceDataPanelProps> = ({
@@ -31,8 +33,11 @@ export const SourcePanel: React.FC<SourceDataPanelProps> = ({
                                                                     isColumnMapped,
                                                                     getColumnMappingCount,
                                                                     globalFilter,
-                                                                    onGlobalFilterChange
+                                                                    onGlobalFilterChange,
+                                                                    inputValue
                                                                 }) => {
+    // Use inputValue for input field (immediate), globalFilter for filtering (debounced)
+    const displayValue = inputValue !== undefined ? inputValue : globalFilter;
     // Enhanced filter function for columns that preserves original indices
     const getFilteredColumnsWithIndices = (columns: string[]): Array<{column: string, originalIndex: number}> => {
         if (!globalFilter.trim()) {
@@ -104,11 +109,11 @@ export const SourcePanel: React.FC<SourceDataPanelProps> = ({
                     <input
                         type="text"
                         placeholder="Search files, sheets, and columns..."
-                        value={globalFilter}
+                        value={displayValue}
                         onChange={(e) => onGlobalFilterChange(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
-                    {globalFilter && (
+                    {displayValue && (
                         <button
                             onClick={() => onGlobalFilterChange('')}
                             className="absolute right-3 top-1/2 transform -translate-y-1/2"

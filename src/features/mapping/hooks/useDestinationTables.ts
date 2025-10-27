@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { COLUMN_GROUPS, BASE_COLUMNS } from '@config';
 import { getGroupByKey } from '@utils';
+import { useDebounce } from '@shared/hooks';
 import type { DestinationTable } from '@types';
 
 export interface TableConfig {
@@ -54,15 +55,16 @@ export const useDestinationTables = () => {
     ]);
 
     const [globalFilter, setGlobalFilter] = useState<string>('');
+    const debouncedFilter = useDebounce(globalFilter, 300);
 
     const getFilteredColumns = useCallback((table: DestinationTable): string[] => {
-        if (!globalFilter.trim()) {
+        if (!debouncedFilter.trim()) {
             return table.columns;
         }
         return table.columns.filter(column =>
-            column.toLowerCase().includes(globalFilter.toLowerCase())
+            column.toLowerCase().includes(debouncedFilter.toLowerCase())
         );
-    }, [globalFilter]);
+    }, [debouncedFilter]);
 
     // Update config and regenerate table
     const updateConfig = useCallback((newConfig: Partial<TableConfig>) => {

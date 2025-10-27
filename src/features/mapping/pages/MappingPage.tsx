@@ -4,6 +4,7 @@ import { Table, Save, Loader2, Upload } from 'lucide-react';
 
 // Shared components
 import { Navbar, ToastNotification } from '@components';
+import { useDebounce } from '@shared/hooks';
 
 // Feature-specific hooks
 import { useMappingLogic, useDestinationTables, useExportLogic } from '@features/mapping';
@@ -26,6 +27,7 @@ const MappingPage: React.FC = () => {
     const [isUploadLoading, setIsUploadLoading] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [sourceGlobalFilter, setSourceGlobalFilter] = useState<string>('');
+    const debouncedSourceFilter = useDebounce(sourceGlobalFilter, 300);
     const [, setExportMessage] = useState<string>('');
 
     // Custom hooks
@@ -156,8 +158,9 @@ const MappingPage: React.FC = () => {
                             getSheetMappingCount={getSheetMappingCount}
                             isColumnMapped={isColumnMapped}
                             getColumnMappingCount={getColumnMappingCount}
-                            globalFilter={sourceGlobalFilter}
+                            globalFilter={debouncedSourceFilter}
                             onGlobalFilterChange={setSourceGlobalFilter}
+                            inputValue={sourceGlobalFilter}
                         />
 
                         {/* Destination Tables Panel */}
