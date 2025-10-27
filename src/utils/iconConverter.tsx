@@ -1,4 +1,4 @@
-// src/utils/iconHelper.tsx - Icon mapping utility
+// src/utils/iconConverter.tsx - Icon mapping utility
 import React from 'react';
 import {
     Users,
@@ -170,18 +170,4 @@ export const getGroupIcon = (iconName: string, className?: string): React.ReactN
 
     const fallbackIcon = groupIconFallbacks[iconName] || 'User';
     return getIcon(iconName, className) || getIcon(fallbackIcon, className);
-};
-
-/**
- * Check if an icon exists in the map
- */
-export const iconExists = (iconName: string): boolean => {
-    return iconName in iconMap;
-};
-
-/**
- * Get all available icon names
- */
-export const getAllIconNames = (): IconName[] => {
-    return Object.keys(iconMap) as IconName[];
 };

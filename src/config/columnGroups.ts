@@ -5,6 +5,7 @@ export interface ColumnGroupDefinition {
     iconName: string; // Changed from icon to iconName
     color: 'blue' | 'green' | 'purple' | 'orange' | 'indigo' | 'red' | 'yellow' | 'pink' | 'teal';
     maxInstances: number;
+    defaultInstances: number; // Default number of instances when initializing
     fields: string[];
     prefix: string;
     isMultiInstance: boolean;
@@ -14,9 +15,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
     {
         key: 'addresses',
         name: 'Address',
-        iconName: 'MapPin', // Changed from Address to MapPin (more appropriate for addresses)
+        iconName: 'MapPin',
         color: 'orange',
         maxInstances: 10,
+        defaultInstances: 1,
         prefix: 'address',
         isMultiInstance: true,
         fields: [
@@ -27,9 +29,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
     {
         key: 'contacts',
         name: 'Contact',
-        iconName: 'Phone', // Changed from Home to Phone (more appropriate for contact info)
+        iconName: 'Phone',
         color: 'orange',
         maxInstances: 10,
+        defaultInstances: 1,
         prefix: 'contact',
         isMultiInstance: true,
         fields: [
@@ -40,9 +43,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
     {
         key: 'banks',
         name: 'Bank',
-        iconName: 'Building2', // Changed from Home to Building2 (more appropriate for banks)
+        iconName: 'Building2',
         color: 'orange',
         maxInstances: 10,
+        defaultInstances: 1,
         prefix: 'bank',
         isMultiInstance: true,
         fields: [
@@ -58,6 +62,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         iconName: 'Shield',
         color: 'green',
         maxInstances: 10,
+        defaultInstances: 3,
         prefix: 'guarantor',
         isMultiInstance: true,
         fields: [
@@ -72,6 +77,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         iconName: 'Users',
         color: 'purple',
         maxInstances: 10,
+        defaultInstances: 3,
         prefix: 'joint',
         isMultiInstance: true,
         fields: [
@@ -82,9 +88,10 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
     {
         key: 'assets',
         name: 'Asset',
-        iconName: 'Home', // Keep Home for assets as it represents property/real estate
+        iconName: 'Home',
         color: 'orange',
         maxInstances: 10,
+        defaultInstances: 3,
         prefix: 'asset',
         isMultiInstance: true,
         fields: [
@@ -102,6 +109,7 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         iconName: 'Briefcase',
         color: 'indigo',
         maxInstances: 5,
+        defaultInstances: 1,
         prefix: 'job',
         isMultiInstance: true,
         fields: [
@@ -118,8 +126,9 @@ export const COLUMN_GROUPS: ColumnGroupDefinition[] = [
         iconName: 'DollarSign',
         color: 'red',
         maxInstances: 2,
+        defaultInstances: 1,
         prefix: 'finance',
-        isMultiInstance: false, // Changed to false - single instance group
+        isMultiInstance: false,
         fields: [
             'supplier_evaluation', 'bank_account',
             'ongoing_garnishments', 'garnishment_amount', 'garnishment_expiration_date', 'garnishment_notes',
@@ -139,42 +148,3 @@ export const BASE_COLUMNS = [
 
 // Add the missing ALL_BASE_COLUMNS export
 export const ALL_BASE_COLUMNS = BASE_COLUMNS;
-
-// Utility functions
-export const getGroupByKey = (key: string): ColumnGroupDefinition | undefined => {
-    return COLUMN_GROUPS.find(group => group.key === key);
-};
-
-export const getGroupByPrefix = (prefix: string): ColumnGroupDefinition | undefined => {
-    return COLUMN_GROUPS.find(group => group.prefix === prefix);
-};
-
-export const parseColumnName = (columnName: string): { groupKey?: string; instanceNumber?: number; field?: string; prefix?: string } | null => {
-    // Try to match multi-instance pattern: prefix_number_field
-    for (const group of COLUMN_GROUPS) {
-        if (group.isMultiInstance) {
-            const regex = new RegExp(`^${group.prefix}_(\\d+)_(.+)$`);
-            const match = columnName.match(regex);
-            if (match) {
-                return {
-                    groupKey: group.key,
-                    prefix: group.prefix,
-                    instanceNumber: parseInt(match[1]),
-                    field: match[2]
-                };
-            }
-        } else {
-            // Single instance pattern: prefix_field
-            const regex = new RegExp(`^${group.prefix}_(.+)$`);
-            const match = columnName.match(regex);
-            if (match) {
-                return {
-                    groupKey: group.key,
-                    prefix: group.prefix,
-                    field: match[1]
-                };
-            }
-        }
-    }
-    return null;
-};

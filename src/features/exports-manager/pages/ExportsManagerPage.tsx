@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Eye, Trash2, Download, Plus, Calendar, Database, RefreshCw, AlertCircle, CheckCircle, Clock, Loader, Filter, X } from 'lucide-react';
 import { Navbar } from "@components";
+import { useDebounce } from '@shared/hooks';
 import { ExportDetail } from "@features/exports-manager";
 import { LoadingOverlay } from "@features/exports-manager";
 
@@ -19,6 +20,7 @@ const ExportsManagerPage = () => {
     const [exports, setExports] = useState<MappingExport[]>([]);
     const [filteredExports, setFilteredExports] = useState<MappingExport[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [selectedExport, setSelectedExport] = useState<MappingExport | null>(null);
     const [showDetails, setShowDetails] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -360,12 +362,12 @@ const ExportsManagerPage = () => {
         }
     };
 
-    // Filter exports based on search term with AbortController
+    // Filter exports based on debounced search term with AbortController
     useEffect(() => {
         const abortController = new AbortController();
         
         const performSearch = async () => {
-            const trimmedTerm = searchTerm.trim();
+            const trimmedTerm = debouncedSearchTerm.trim();
             
             // If empty search, show all exports
             if (!trimmedTerm) {
@@ -400,15 +402,13 @@ const ExportsManagerPage = () => {
             }
         };
 
-        // Debounce search
-        const debounceTimer = setTimeout(performSearch, 300);
+        performSearch();
         
         // Cleanup function
         return () => {
-            clearTimeout(debounceTimer);
             abortController.abort();
         };
-    }, [searchTerm, exports]);
+    }, [debouncedSearchTerm, exports]);
 
     // Apply advanced filters and sort exports
     const sortedExports = useMemo(() => {

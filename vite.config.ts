@@ -14,6 +14,7 @@ export default defineConfig({
       '@types': '/src/types',
       '@features': '/src/features',
       '@components': '/src/shared/components',
+      '@shared': '/src/shared',
       '@config': '/src/config',
       '@utils': '/src/utils',
       '@assets': '/src/assets',

@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
 import { Trash2, Columns, Search, X, Users } from 'lucide-react';
 import { useDestinationTables } from '@features/mapping';
-import { parseColumnName, getGroupByKey } from '@config';
-import { getGroupIcon, formatColumnName } from "@utils";
+import { parseColumnName, getGroupByKey, getGroupIcon, formatColumnName, getColorClasses } from "@utils";
 import type { DestinationTable, ColumnMapping } from '@types';;
 
 interface ColumnGroup {
@@ -155,22 +154,6 @@ export const DestinationPanel: React.FC<DestinationTablesPanelProps> = ({
         });
 
         return tabGroups;
-    };
-
-    // Get color classes helper
-    const getColorClasses = (color: string, variant: 'bg' | 'text' | 'border' | 'hover') => {
-        const colorMap = {
-            blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-500', hover: 'hover:bg-blue-100' },
-            green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-500', hover: 'hover:bg-green-100' },
-            purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-500', hover: 'hover:bg-purple-100' },
-            orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-500', hover: 'hover:bg-orange-100' },
-            indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-500', hover: 'hover:bg-indigo-100' },
-            red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-500', hover: 'hover:bg-red-100' },
-            yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-500', hover: 'hover:bg-yellow-100' },
-            pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-500', hover: 'hover:bg-pink-100' },
-            teal: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-500', hover: 'hover:bg-teal-100' }
-        };
-        return colorMap[color as keyof typeof colorMap]?.[variant] || colorMap.blue[variant];
     };
 
     const table = destinationTables[0];

@@ -1,137 +1,6 @@
-// utils/helpers.ts - Utility functions and helpers
-// utils/helpers.ts - Utility functions and helpers
-import type { ColumnMapping, DestinationTable } from '@types';
-
-/**
- * Extract filename from full path
- */
-export const extractFileName = (fullPath: string): string => {
-    return fullPath.split('\\').pop() || fullPath;
-};
-
-/**
- * Generate unique ID for mappings
- */
-export const generateMappingId = (): number => {
-    return Date.now() + Math.random();
-};
-
-/**
- * Format timestamp for Vietnamese locale
- */
-export const formatTimestamp = (): string => {
-    return new Date().toLocaleString('vi-VN');
-};
-
-/**
- * Check if a string contains a search term (case insensitive)
- */
-export const matchesSearch = (text: string, searchTerm: string): boolean => {
-    return text.toLowerCase().includes(searchTerm.toLowerCase());
-};
-
-/**
- * Get mappings for a specific destination column
- */
-export const getMappingsForColumn = (
-    mappings: ColumnMapping[],
-    tableName: string,
-    columnName: string
-): ColumnMapping[] => {
-    return mappings.filter(m =>
-        m.destination.table === tableName && m.destination.column === columnName
-    );
-};
-
-/**
- * Remove mappings associated with a table
- */
-export const removeMappingsForTable = (
-    mappings: ColumnMapping[],
-    tableName: string
-): ColumnMapping[] => {
-    return mappings.filter(mapping => mapping.destination.table !== tableName);
-};
-
-/**
- * Remove mappings associated with a specific column
- */
-export const removeMappingsForColumn = (
-    mappings: ColumnMapping[],
-    tableName: string,
-    columnName: string
-): ColumnMapping[] => {
-    return mappings.filter(mapping =>
-        !(mapping.destination.table === tableName && mapping.destination.column === columnName)
-    );
-};
-
-/**
- * Validate mapping data before export
- */
-export const validateMappingData = (
-    mappings: ColumnMapping[],
-    destinationTables: DestinationTable[]
-): { isValid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-
-    if (mappings.length === 0) {
-        errors.push('No mappings defined');
-    }
-
-    if (destinationTables.length === 0) {
-        errors.push('No destination tables defined');
-    }
-
-    // Check for orphaned mappings (mappings to tables that don't exist)
-    const tableNames = new Set(destinationTables.map(t => t.name));
-    const orphanedMappings = mappings.filter(m => !tableNames.has(m.destination.table));
-
-    if (orphanedMappings.length > 0) {
-        errors.push(`Found ${orphanedMappings.length} mappings to non-existent tables`);
-    }
-
-    return {
-        isValid: errors.length === 0,
-        errors
-    };
-};
-
-/**
- * Group mappings by source file
- */
-export const groupMappingsByFile = (mappings: ColumnMapping[]): Record<string, ColumnMapping[]> => {
-    return mappings.reduce((acc, mapping) => {
-        const fileName = mapping.source.file || 'unknown';
-        if (!acc[fileName]) {
-            acc[fileName] = [];
-        }
-        acc[fileName].push(mapping);
-        return acc;
-    }, {} as Record<string, ColumnMapping[]>);
-};
-
-/**
- * Create export summary statistics
- */
-export const createExportSummary = (
-    mappings: ColumnMapping[],
-    destinationTables: DestinationTable[]
-) => {
-    const fileGroups = groupMappingsByFile(mappings);
-    const totalFiles = Object.keys(fileGroups).length;
-    const totalColumns = mappings.length;
-    const tablesWithMappings = new Set(mappings.map(m => m.destination.table)).size;
-
-    return {
-        totalMappings: mappings.length,
-        totalFiles,
-        totalColumns,
-        totalDestinationTables: destinationTables.length,
-        tablesWithMappings,
-        averageMappingsPerTable: tablesWithMappings > 0 ? (mappings.length / tablesWithMappings).toFixed(1) : '0'
-    };
-};
+import type {ReactNode} from "react";
+import {COLUMN_GROUPS, type ColumnGroupDefinition} from "@config";
+import {getGroupIcon} from "@utils/iconConverter.tsx";
 
 export function formatColumnName(column: string): string {
     // Lấy toàn bộ chữ (bỏ số và ký tự đặc biệt)
@@ -144,4 +13,129 @@ export function formatColumnName(column: string): string {
         .split("_")
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
+};
+
+export interface ArrayMappingConfig {
+    title: string;
+    icon: ReactNode;
+    colorClass: string;
 }
+
+/**
+ * Helper to generate config from COLUMN_GROUPS
+ */
+export const generateArrayMappingConfig = (groupKey: string): ArrayMappingConfig | null => {
+    const group = getGroupByKey(groupKey);
+    if (!group) return null;
+
+    // Map color names to gradient classes
+    const colorGradients: Record<string, string> = {
+        blue: "bg-gradient-to-r from-blue-500 to-blue-600",
+        green: "bg-gradient-to-r from-green-500 to-green-600",
+        purple: "bg-gradient-to-r from-purple-500 to-purple-600",
+        orange: "bg-gradient-to-r from-orange-500 to-orange-600",
+        indigo: "bg-gradient-to-r from-indigo-500 to-indigo-600",
+        red: "bg-gradient-to-r from-red-500 to-red-600",
+        yellow: "bg-gradient-to-r from-yellow-500 to-yellow-600",
+        pink: "bg-gradient-to-r from-pink-500 to-pink-600",
+        teal: "bg-gradient-to-r from-teal-500 to-teal-600",
+        emerald: "bg-gradient-to-r from-emerald-500 to-emerald-600",
+    };
+
+    return {
+        title: group.name + 's', // Pluralize
+        icon: getGroupIcon(group.iconName, "w-5 h-5 text-white"),
+        colorClass: colorGradients[group.color] || "bg-gradient-to-r from-gray-500 to-gray-600"
+    };
+};
+
+/**
+ * Get all array mapping keys dynamically
+ */
+export const getArrayMappingKeys = (): string[] => {
+    return COLUMN_GROUPS
+        .filter(group => group.isMultiInstance || group.key === 'finance')
+        .map(group => group.key);
+};
+
+/**
+ * Utility functions
+ */
+export const toStr = (v: unknown): string => (v == null ? "" : String(v));
+
+export const shortId = (id: unknown, take = 8): string => {
+    const s = toStr(id);
+    return !s ? "N/A" : s.length > take ? `${s.slice(0, take)}...` : s;
+};
+
+export const normalizeDateInput = (v: string | number | Date): string => {
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === "number") return new Date(v).toISOString();
+    if (typeof v === "string") {
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? v : d.toISOString();
+    }
+    return toStr(v);
+};
+
+export const capitalizeLabel = (str: string): string =>
+    str.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+/**
+ * Get Tailwind color classes for a given color and variant
+ */
+export const getColorClasses = (color: string, variant: 'bg' | 'text' | 'border' | 'hover'): string => {
+    const colorMap = {
+        blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-500', hover: 'hover:bg-blue-100' },
+        green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-500', hover: 'hover:bg-green-100' },
+        purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-500', hover: 'hover:bg-purple-100' },
+        orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-500', hover: 'hover:bg-orange-100' },
+        indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-500', hover: 'hover:bg-indigo-100' },
+        red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-500', hover: 'hover:bg-red-100' },
+        yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-500', hover: 'hover:bg-yellow-100' },
+        pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-500', hover: 'hover:bg-pink-100' },
+        teal: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-500', hover: 'hover:bg-teal-100' }
+    };
+    return colorMap[color as keyof typeof colorMap]?.[variant] || colorMap.blue[variant];
+};
+
+/**
+ * Column group utility functions
+ */
+export const getGroupByKey = (key: string): ColumnGroupDefinition | undefined => {
+    return COLUMN_GROUPS.find(group => group.key === key);
+};
+
+export const getGroupByPrefix = (prefix: string): ColumnGroupDefinition | undefined => {
+    return COLUMN_GROUPS.find(group => group.prefix === prefix);
+};
+
+export const parseColumnName = (columnName: string): { groupKey?: string; instanceNumber?: number; field?: string; prefix?: string } | null => {
+    // Try to match multi-instance pattern: prefix_number_field
+    for (const group of COLUMN_GROUPS) {
+        if (group.isMultiInstance) {
+            const regex = new RegExp(`^${group.prefix}_(\\d+)_(.+)$`);
+            const match = columnName.match(regex);
+            if (match) {
+                return {
+                    groupKey: group.key,
+                    prefix: group.prefix,
+                    instanceNumber: parseInt(match[1]),
+                    field: match[2]
+                };
+            }
+        } else {
+            // Single instance pattern: prefix_field
+            const regex = new RegExp(`^${group.prefix}_(.+)$`);
+            const match = columnName.match(regex);
+            if (match) {
+                return {
+                    groupKey: group.key,
+                    prefix: group.prefix,
+                    field: match[1]
+                };
+            }
+        }
+    }
+    return null;
+};

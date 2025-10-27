@@ -1,2 +1,2 @@
 export * from './helpers';
-export * from './iconHelper';
+export * from './iconConverter.tsx';

@@ -1,5 +1,6 @@
 // src/utils/columnGroupManager.ts - Utility for managing column groups
-import { COLUMN_GROUPS, getGroupByKey, type ColumnGroupDefinition } from "@config";
+import { COLUMN_GROUPS, type ColumnGroupDefinition } from "@config";
+import { getGroupByKey } from "@utils";
 
 export class ColumnGroupManager {
     /**

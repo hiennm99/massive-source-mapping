@@ -19,7 +19,7 @@ import {
 } from '../components';
 
 // Types
-import type { FileData } from '../../../types.ts';
+import type { FileData } from '@types';
 
 const MappingPage: React.FC = () => {
     const [jsonData, setJsonData] = useState<FileData[]>([]);

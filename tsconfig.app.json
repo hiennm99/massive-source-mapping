@@ -36,6 +36,8 @@
       "@features/*": ["src/features/*"],
       "@components": ["src/shared/components"],
       "@components/*": ["src/shared/components/*"],
+      "@shared": ["src/shared"],
+      "@shared/*": ["src/shared/*"],
       "@utils": ["src/utils"],
       "@utils/*": ["src/utils/*"],
       "@assets": ["src/assets"],

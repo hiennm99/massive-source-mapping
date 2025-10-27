@@ -1,6 +1,7 @@
 // src/hooks/useDestinationTables.ts - Automated version using config
 import { useState, useCallback } from 'react';
-import { COLUMN_GROUPS, BASE_COLUMNS, getGroupByKey } from '@config';
+import { COLUMN_GROUPS, BASE_COLUMNS } from '@config';
+import { getGroupByKey } from '@utils';
 import type { DestinationTable } from '@types';
 
 export interface TableConfig {
@@ -8,20 +9,11 @@ export interface TableConfig {
 }
 
 export const useDestinationTables = () => {
-    // Initialize config dynamically from COLUMN_GROUPS
+    // Initialize config dynamically from COLUMN_GROUPS using defaultInstances
     const [config, setConfig] = useState<TableConfig>(() => {
         const initialConfig: TableConfig = {};
         COLUMN_GROUPS.forEach(group => {
-            // Set initial values - you can customize these
-            if (group.key === 'guarantors') initialConfig[group.key] = 3;
-            else if (group.key === 'joints') initialConfig[group.key] = 3;
-            else if (group.key === 'addresses') initialConfig[group.key] = 1;
-            else if (group.key === 'contacts') initialConfig[group.key] = 1;
-            else if (group.key === 'banks') initialConfig[group.key] = 1;
-            else if (group.key === 'assets') initialConfig[group.key] = 3;
-            else if (group.key === 'jobs') initialConfig[group.key] = 1;
-            else if (group.key === 'finance') initialConfig[group.key] = 1;
-            else initialConfig[group.key] = 1; // Default for new groups
+            initialConfig[group.key] = group.defaultInstances;
         });
         return initialConfig;
     });
@@ -108,6 +100,7 @@ export const useDestinationTables = () => {
     // Create specific functions for backward compatibility
     const addGuarantorSlot = useCallback(() => addSlot('guarantors'), [addSlot]);
     const removeGuarantorSlot = useCallback(() => removeSlot('guarantors'), [removeSlot]);
+
     const addJointSlot = useCallback(() => addSlot('joints'), [addSlot]);
     const removeJointSlot = useCallback(() => removeSlot('joints'), [removeSlot]);
 
@@ -122,14 +115,11 @@ export const useDestinationTables = () => {
 
     const addAssetSlot = useCallback(() => addSlot('assets'), [addSlot]);
     const removeAssetSlot = useCallback(() => removeSlot('assets'), [removeSlot]);
+
     const addJobSlot = useCallback(() => addSlot('jobs'), [addSlot]);
     const removeJobSlot = useCallback(() => removeSlot('jobs'), [removeSlot]);
 
     // New generic functions that can be used for any group
-    const addVehicleSlot = useCallback(() => addSlot('vehicles'), [addSlot]);
-    const removeVehicleSlot = useCallback(() => removeSlot('vehicles'), [removeSlot]);
-    const addCreditCardSlot = useCallback(() => addSlot('credit_cards'), [addSlot]);
-    const removeCreditCardSlot = useCallback(() => removeSlot('credit_cards'), [removeSlot]);
     const addFinanceSlot = useCallback(() => addSlot('finance'), [addSlot]);
     const removeFinanceSlot = useCallback(() => removeSlot('finance'), [removeSlot]);
 
@@ -158,10 +148,6 @@ export const useDestinationTables = () => {
         // New generic functions
         addSlot,
         removeSlot,
-        addVehicleSlot,
-        removeVehicleSlot,
-        addCreditCardSlot,
-        removeCreditCardSlot,
         addFinanceSlot,
         removeFinanceSlot,
 

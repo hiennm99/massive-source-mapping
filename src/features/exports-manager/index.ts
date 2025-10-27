@@ -2,3 +2,5 @@
 export { default as ExportsManagerPage } from './pages/ExportsManagerPage';
 export * from './components';
 export * from './services';
+
+export * from './hooks'
