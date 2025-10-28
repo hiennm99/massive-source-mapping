@@ -11,46 +11,51 @@ const API_ENDPOINTS = {
 // Updated interface to match actual backend response
 interface ActualMultipleResponse {
     success: boolean;
-    message: string;
-    scan_results: Array<{
-        filename: string;
+    total_files: number;
+    processed_files: number;
+    results: Array<{
         success: boolean;
-        result?: {
-            success: boolean;
-            message: string;
-            scan_result: {
-                filename: string;
-                file_size: number;
-                scan_timestamp: string;
-                sheets: Array<{
-                    sheet_name: string;
-                    have_header: boolean;
-                    header_row_idx: number;
-                    header_at_row: number;
-                    columns: string[];
-                    sample_data: string[];
-                    header_quality: never;
-                    processed_file_info: never;
-                }>;
-                total_sheets: number;
-                sheets_with_header: number;
-                gcs_storage: never;
-            };
-            saved_record?: never;
-            processing_info: never;
+        message: string;
+        scan_result: {
+            filename: string;
+            file_size: number;
+            scan_timestamp: string;
+            sheets: Array<{
+                sheet_name: string;
+                have_header: boolean;
+                header_row_idx: number;
+                header_at_row: number;
+                columns: string[];
+                sample_data: string[];
+                header_quality?: {
+                    total_cols: number;
+                    valid_cols: number;
+                    unnamed_count: number;
+                    unnamed_ratio: number;
+                    anchor_matches: number;
+                };
+                processed_file_info?: null;
+            }>;
+            total_sheets: number;
+            sheets_with_header: number;
+            gcs_storage?: null;
         };
-        error?: string;
+        saved_record?: {
+            id: string;
+            saved_at: string;
+        };
+        processing_info?: {
+            file_size: string;
+            max_scan_rows: number;
+            saved_to_db: boolean;
+        };
+        gcs_info?: {
+            file_uploaded: boolean;
+            scan_result_uploaded: boolean;
+            file_gcs_info?: null;
+            scan_result_gcs_info?: null;
+        };
     }>;
-    saved_record: never;
-    processing_info: {
-        total_files: number;
-        successful_files: number;
-        failed_files: number;
-        total_size: string;
-        max_scan_rows: number;
-        saved_to_db: boolean;
-        saved_to_gcs: boolean;
-    };
 }
 
 // Single file upload and scan
@@ -177,7 +182,7 @@ export const uploadAndScanMultipleExcelFiles = async (
         const result = response.data;
 
         if (!result.success) {
-            throw new Error(result.message || 'Batch scan failed');
+            throw new Error('Batch scan failed');
         }
 
         console.log('Batch upload successful:', result);
@@ -186,13 +191,17 @@ export const uploadAndScanMultipleExcelFiles = async (
         const successfulResults: FileData[] = [];
         const errors: string[] = [];
 
-        result.scan_results.forEach(fileResult => {
-            if (fileResult.success && fileResult.result && fileResult.result.scan_result) {
-                // Extract data from the nested structure
-                const scanResult = fileResult.result.scan_result;
+        if (!result.results || !Array.isArray(result.results)) {
+            throw new Error('Backend response missing results array. Response: ' + JSON.stringify(result));
+        }
+
+        result.results.forEach(fileResult => {
+            if (fileResult.success && fileResult.scan_result) {
+                // Extract data from scan_result
+                const scanResult = fileResult.scan_result;
 
                 successfulResults.push({
-                    file: fileResult.filename, // Use filename from fileResult level
+                    file: scanResult.filename,
                     sheets: scanResult.sheets.map(sheet => ({
                         sheet_name: sheet.sheet_name,
                         have_header: sheet.have_header,
@@ -200,8 +209,8 @@ export const uploadAndScanMultipleExcelFiles = async (
                         sample_data: sheet.sample_data || []
                     }))
                 });
-            } else if (fileResult.error) {
-                errors.push(`${fileResult.filename}: ${fileResult.error}`);
+            } else if (!fileResult.success) {
+                errors.push(`${fileResult.message || 'Unknown error'}`);
             }
         });
 
